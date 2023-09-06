@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package clr
@@ -103,8 +104,10 @@ func (obj *Assembly) Release() uintptr {
 }
 
 // GetEntryPoint returns the assembly's MethodInfo
-//      virtual HRESULT __stdcall get_EntryPoint (
-//     /*[out,retval]*/ struct _MethodInfo * * pRetVal ) = 0;
+//
+//	 virtual HRESULT __stdcall get_EntryPoint (
+//	/*[out,retval]*/ struct _MethodInfo * * pRetVal ) = 0;
+//
 // https://docs.microsoft.com/en-us/dotnet/api/system.reflection.assembly.entrypoint?view=netframework-4.8#System_Reflection_Assembly_EntryPoint
 // https://docs.microsoft.com/en-us/dotnet/api/system.reflection.methodinfo?view=netframework-4.8
 func (obj *Assembly) GetEntryPoint() (pRetVal *MethodInfo, err error) {
@@ -126,4 +129,19 @@ func (obj *Assembly) GetEntryPoint() (pRetVal *MethodInfo, err error) {
 	}
 	err = nil
 	return
+}
+
+func (obj *Assembly) GetFullName() (string, error) {
+	var pRetValBSTR unsafe.Pointer
+	hr, _, _ := syscall.Syscall(
+		obj.vtbl.get_FullName,
+		2,
+		uintptr(unsafe.Pointer(obj)),
+		uintptr(unsafe.Pointer(&pRetValBSTR)),
+		0)
+	err := checkOK(hr, "assembly.getfullname")
+	if err != nil {
+		return "", err
+	}
+	return ReadUnicodeStr(pRetValBSTR), nil
 }

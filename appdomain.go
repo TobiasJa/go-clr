@@ -1,4 +1,5 @@
 //go:build windows
+// +build windows
 
 package clr
 
@@ -155,6 +156,21 @@ func (obj *AppDomain) GetHashCode() (int32, error) {
 	return int32(ret), nil
 }
 
+func (obj *AppDomain) GetFriendlyName() (name string, err error) {
+	var bstrFriendlyname unsafe.Pointer
+	hr, _, _ := syscall.Syscall(
+		obj.vtbl.get_FriendlyName,
+		3,
+		uintptr(unsafe.Pointer(obj)),
+		uintptr(unsafe.Pointer(&bstrFriendlyname)),
+		0)
+	err = checkOK(hr, "appdomain.Getfriendlyname")
+	if err != nil {
+		return
+	}
+	return ReadUnicodeStr(unsafe.Pointer(bstrFriendlyname)), nil
+}
+
 // Load_3 Loads an Assembly into this application domain.
 // virtual HRESULT __stdcall Load_3 (
 // /*[in]*/ SAFEARRAY * rawAssembly,
@@ -208,5 +224,74 @@ func (obj *AppDomain) ToString() (domain string, err error) {
 	}
 	err = nil
 	domain = ReadUnicodeStr(unsafe.Pointer(pDomain))
+	return
+}
+
+func (obj *AppDomain) Load_2(assemblyString string) (*Assembly, error) {
+	var err error
+	var pAssembly *Assembly
+	str, _ := SysAllocString(assemblyString)
+	ret, _, _ := syscall.SyscallN(
+		obj.vtbl.Load_2,
+		uintptr(unsafe.Pointer(obj)),
+		uintptr(unsafe.Pointer(str)),
+		uintptr(unsafe.Pointer(&pAssembly)))
+	if ret != 0 {
+		err = fmt.Errorf("bad load 2: %x", ret)
+	}
+	return pAssembly, err
+}
+
+func (obj *AppDomain) GetAssemblies() (*SafeArray, error) {
+	var safeArray *SafeArray
+	ret, _, _ := syscall.SyscallN(
+		obj.vtbl.GetAssemblies,
+		uintptr(unsafe.Pointer(obj)),
+		uintptr(unsafe.Pointer(&safeArray)))
+	if ret != 0 {
+		return nil, fmt.Errorf("getassemblies: %x", ret)
+	}
+	return safeArray, nil
+}
+
+func (obj *AppDomain) ListAssemblies() (assemblies []string, err error) {
+	safeArray, err := obj.GetAssemblies()
+	if err != nil {
+		return
+	}
+	//get dimensions of array (should be 1 for this context always)
+	d, err := SafeArrayGetDim(safeArray)
+	if err != nil {
+		return
+	}
+	if d != 1 {
+		return nil, fmt.Errorf("expected dimension of 1, got %d", d)
+	}
+
+	lbound, err := SafeArrayGetLBound(safeArray, d)
+	if err != nil {
+		return
+	}
+
+	ubound, err := SafeArrayGetUBound(safeArray, d)
+	if err != nil {
+		return
+	}
+	arrlen := ubound - lbound
+	//avoids allocs (lol, overkill)
+	assemblies = make([]string, 0, arrlen)
+	for i := lbound; i <= ubound; i++ {
+		pApp, err := SafeArrayGetElement(safeArray, i)
+		if err != nil {
+			return nil, err
+		}
+		app := (*Assembly)(pApp)
+		asss, err := app.GetFullName()
+
+		if err != nil {
+			return nil, err
+		}
+		assemblies = append(assemblies, asss)
+	}
 	return
 }
