@@ -183,7 +183,9 @@ func (obj *ICORRuntimeHost) GetDefaultDomain() (IUnknown *IUnknown, err error) {
 //
 // );
 // https://docs.microsoft.com/en-us/previous-versions/dotnet/netframework-4.0/ms164322(v=vs.100)
-func (obj *ICORRuntimeHost) CreateDomain(pwzFriendlyName *uint16) (pAppDomain *AppDomain, err error) {
+func (obj *ICORRuntimeHost) CreateDomain(FriendlyName string) (pAppDomain *AppDomain, err error) {
+	pwzFriendlyName := &utf16Le(FriendlyName)[0]
+	var iu *IUnknown
 	debugPrint("Entering into icorruntimehost.CreateDomain()...")
 	hr, _, err := syscall.Syscall6(
 		obj.vtbl.CreateDomain,
@@ -191,7 +193,7 @@ func (obj *ICORRuntimeHost) CreateDomain(pwzFriendlyName *uint16) (pAppDomain *A
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(pwzFriendlyName)), // [in] LPWSTR    pwzFriendlyName - An optional parameter used to give a friendly name to the domain
 		uintptr(unsafe.Pointer(nil)),             // [in] IUnknown* pIdentityArray - An optional array of pointers to IIdentity instances that represent evidence mapped through security policy to establish a permission set
-		uintptr(unsafe.Pointer(&pAppDomain)),     // [out] IUnknown** pAppDomain
+		uintptr(unsafe.Pointer(&iu)),             // [out] IUnknown** pAppDomain
 		0,
 		0,
 	)
@@ -204,7 +206,8 @@ func (obj *ICORRuntimeHost) CreateDomain(pwzFriendlyName *uint16) (pAppDomain *A
 		err = fmt.Errorf("the ICORRuntimeHost::CreateDomain method returned a non-zero HRESULT: 0x%x", hr)
 		return
 	}
-	err = nil
+
+	err = iu.QueryInterface(IID_AppDomain, unsafe.Pointer(&pAppDomain))
 	return
 }
 
@@ -214,15 +217,12 @@ func (obj *ICORRuntimeHost) CreateDomain(pwzFriendlyName *uint16) (pAppDomain *A
 //	[out] HCORENUM *hEnum
 //
 // );
-func (obj *ICORRuntimeHost) EnumDomains() (hEnum *uintptr, err error) {
-	debugPrint("Enterin into icorruntimehost.EnumDomains()...")
+func (obj *ICORRuntimeHost) EnumDomains() (hEnum windows.Handle, err error) {
+	debugPrint("Entering into icorruntimehost.EnumDomains()...")
 
-	hr, _, err := syscall.Syscall(
+	hr, _, err := syscall.SyscallN(
 		obj.vtbl.EnumDomains,
-		(uintptr(unsafe.Pointer(hEnum))),
-		0,
-		0,
-		0,
+		(uintptr(unsafe.Pointer(&hEnum))),
 	)
 
 	if err != syscall.Errno(0) {
@@ -237,21 +237,82 @@ func (obj *ICORRuntimeHost) EnumDomains() (hEnum *uintptr, err error) {
 	return
 }
 
-func (obj *ICORRuntimeHost) NextDomain(hDomainEnum uintptr, iunknownptr *uintptr) uintptr {
-	ret, _, _ := syscall.SyscallN(
+func (obj *ICORRuntimeHost) NextDomain(hDomainEnum windows.Handle, iunknownptr *IUnknown) error {
+	debugPrint("Entering into icorruntimehost.NextDomain()...")
+	var err error
+	hr, _, err := syscall.SyscallN(
 		obj.vtbl.NextDomain,
 		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(hDomainEnum)),
-		uintptr(unsafe.Pointer(iunknownptr)),
+		uintptr(hDomainEnum),
+		uintptr(unsafe.Pointer(&iunknownptr)),
 	)
-	return ret
+	if err != syscall.Errno(0) {
+		err = fmt.Errorf("the ICORRuntimeHost::NextDomain method returned an error:\n%s", err)
+		return err
+	}
+	if hr != S_OK {
+		err = fmt.Errorf("the ICORRuntimeHost::NextDomain method returned a non-zero HRESULT: 0x%x", hr)
+		return err
+	}
+	err = nil
+	return err
 }
 
-func (obj *ICORRuntimeHost) CloseEnum(hDomainEnum uintptr) uintptr {
-	ret, _, _ := syscall.SyscallN(
+func (obj *ICORRuntimeHost) CloseEnum(hDomainEnum windows.Handle) (err error) {
+	debugPrint("Entering into icorruntimehost.CloseEnum()...")
+
+	hr, _, err := syscall.SyscallN(
 		obj.vtbl.CloseEnum,
 		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(hDomainEnum)),
+		uintptr(hDomainEnum),
 	)
-	return ret
+	if err != syscall.Errno(0) {
+		err = fmt.Errorf("the ICORRuntimeHost::CloseEnum method returned an error:\n%s", err)
+		return err
+	}
+	if hr != S_OK {
+		err = fmt.Errorf("the ICORRuntimeHost::CloseEnum method returned a non-zero HRESULT: 0x%x", hr)
+		return err
+	}
+	err = nil
+	return err
+}
+
+func (obj *ICORRuntimeHost) UnloadDomain(appdomain *AppDomain) (err error) {
+	debugPrint("Entering into icorruntimehost.UnloadDomain()...")
+
+	hr, _, err := syscall.SyscallN(
+		obj.vtbl.UnloadDomain,
+		uintptr(unsafe.Pointer(obj)),
+		uintptr(unsafe.Pointer(appdomain)),
+	)
+	if err != syscall.Errno(0) {
+		err = fmt.Errorf("the ICORRuntimeHost::UnloadDomain method returned an error:\n%s", err)
+		return err
+	}
+	if hr != S_OK {
+		err = fmt.Errorf("the ICORRuntimeHost::UnloadDomain method returned a non-zero HRESULT: 0x%x", hr)
+		return err
+	}
+	err = nil
+	return err
+}
+
+func (obj *ICORRuntimeHost) Stop() (err error) {
+	debugPrint("Entering into icorruntimehost.Stop()...")
+
+	hr, _, err := syscall.SyscallN(
+		obj.vtbl.Stop,
+		uintptr(unsafe.Pointer(obj)),
+	)
+	if err != syscall.Errno(0) {
+		err = fmt.Errorf("the ICORRuntimeHost::UnloadDomain method returned an error:\n%s", err)
+		return err
+	}
+	if hr != S_OK {
+		err = fmt.Errorf("the ICORRuntimeHost::UnloadDomain method returned a non-zero HRESULT: 0x%x", hr)
+		return err
+	}
+	err = nil
+	return err
 }

@@ -4,9 +4,7 @@
 package clr
 
 import (
-	"errors"
 	"fmt"
-	"log"
 	"syscall"
 	"unsafe"
 )
@@ -162,7 +160,7 @@ func SysAllocString(str string) (unsafe.Pointer, error) {
 	//cast crimes to trick silly go vet, who will get pranked by the simplest slieght of hand
 	//we give unsafe.pointer a pointer to the return value, which makes go vet ignore it.
 	//But we then cast it to a pointer to a pointer, and then dereference the first pointer.
-	//This leaves us with the original pointer, with no go vet complaints
+	//This leaves us with the original pointer, with no go vet complaints. This violates the 'correct' unsafe usage of unsafe.Pointer, obviously.
 	r1 := *(**uintptr)(unsafe.Pointer(&ret))
 
 	return unsafe.Pointer(r1), nil
@@ -395,8 +393,8 @@ func SafeArrayGetDim(psa *SafeArray) (dimensions uint32, err error) {
 	udimensions, _, err := SafeArrayGetDim.Call(
 		uintptr(unsafe.Pointer(psa)),
 	)
-	if !errors.Is(err, syscall.Errno(0)) {
-		return 0, err
+	if err != syscall.Errno(0) {
+		return 0, fmt.Errorf("the oleaut32!SafeArrayGetDim function call returned an error:\n%s", err)
 	}
 	return uint32(udimensions), nil
 }
@@ -407,30 +405,36 @@ func SafeArrayGetElement(array *SafeArray, indicies uint32) (ret unsafe.Pointer,
 
 	modOleAuto := syscall.MustLoadDLL("OleAut32.dll")
 	SafeArrayGetElement := modOleAuto.MustFindProc("SafeArrayGetElement")
-	uret, _, err := SafeArrayGetElement.Call(
+	hr, _, err := SafeArrayGetElement.Call(
 		uintptr(unsafe.Pointer(array)),
 		uintptr(unsafe.Pointer(&indicies)),
 		uintptr(unsafe.Pointer(&ret)),
 	)
-	if !errors.Is(err, syscall.Errno(0)) {
-		return nil, err
+	if err != syscall.Errno(0) {
+		return nil, fmt.Errorf("the oleaut32!SafeArrayGetElement function call returned an error:\n%s", err)
+	}
+	if hr != S_OK {
+		return nil, fmt.Errorf("the oleaut32!SafeArrayGetElement function returned a non-zero HRESULT: 0x%x", hr)
 	}
 	err = nil
-	log.Println("Safearray: ", indicies, uret)
 	return
 }
 
-// SafeArrayPutElement pushes an element to the safe array at a given index
-func SafeArrayGetElemsize(array unsafe.Pointer) (ret uintptr, err error) {
+// SafeArrayGetElemsize returns the element size of the safearray in bytes
+// UINT SafeArrayGetElemsize(
+//
+//	[in] SAFEARRAY *psa
+//	);
+func SafeArrayGetElemsize(array *SafeArray) (ret uintptr, err error) {
 	debugPrint("Entering into safearray.SafeArrayGetElemsize()...")
 
 	modOleAuto := syscall.MustLoadDLL("OleAut32.dll")
 	safeArrayPutElement := modOleAuto.MustFindProc("SafeArrayGetElemsize")
 	ret, _, err = safeArrayPutElement.Call(
-		uintptr(array),
+		uintptr(unsafe.Pointer(array)),
 	)
-	if !errors.Is(err, syscall.Errno(0)) {
-		return 0, err
+	if err != syscall.Errno(0) {
+		return 0, fmt.Errorf("the oleaut32!SafeArrayGetElemsize function call returned an error:\n%s", err)
 	}
 	return ret, nil
 }

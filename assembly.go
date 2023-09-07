@@ -74,6 +74,7 @@ type AssemblyVtbl struct {
 }
 
 func (obj *Assembly) QueryInterface(riid *windows.GUID, ppvObject *uintptr) uintptr {
+	debugPrint("Entering into assembly.QueryInterface()...")
 	ret, _, _ := syscall.Syscall(
 		obj.vtbl.QueryInterface,
 		3,
@@ -84,6 +85,7 @@ func (obj *Assembly) QueryInterface(riid *windows.GUID, ppvObject *uintptr) uint
 }
 
 func (obj *Assembly) AddRef() uintptr {
+	debugPrint("Entering into assembly.AddRef()...")
 	ret, _, _ := syscall.Syscall(
 		obj.vtbl.AddRef,
 		1,
@@ -94,6 +96,7 @@ func (obj *Assembly) AddRef() uintptr {
 }
 
 func (obj *Assembly) Release() uintptr {
+	debugPrint("Entering into assembly.Release()...")
 	ret, _, _ := syscall.Syscall(
 		obj.vtbl.Release,
 		1,
@@ -132,15 +135,21 @@ func (obj *Assembly) GetEntryPoint() (pRetVal *MethodInfo, err error) {
 }
 
 func (obj *Assembly) GetFullName() (string, error) {
+	debugPrint("Entering into assembly.GetFullName()...")
+	var err error
 	var pRetValBSTR unsafe.Pointer
-	hr, _, _ := syscall.Syscall(
+	hr, _, err := syscall.Syscall(
 		obj.vtbl.get_FullName,
 		2,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&pRetValBSTR)),
 		0)
-	err := checkOK(hr, "assembly.getfullname")
-	if err != nil {
+	if err != syscall.Errno(0) {
+		err = fmt.Errorf("the Assembly::GetFullName method returned an error:\r\n%s", err)
+		return "", err
+	}
+	if hr != S_OK {
+		err = fmt.Errorf("the Assembly::GetFullName method returned a non-zero HRESULT: 0x%x", hr)
 		return "", err
 	}
 	return ReadUnicodeStr(pRetValBSTR), nil
