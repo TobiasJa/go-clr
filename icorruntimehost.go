@@ -5,6 +5,7 @@ package clr
 
 import (
 	"fmt"
+	"strings"
 	"syscall"
 	"unsafe"
 
@@ -211,6 +212,30 @@ func (obj *ICORRuntimeHost) CreateDomain(FriendlyName string) (pAppDomain *AppDo
 	return
 }
 
+func (obj *ICORRuntimeHost) GetDomain(dName string) (pAppDomain *AppDomain, err error) {
+	hEnum, err := obj.EnumDomains()
+	if err != nil {
+		return
+	}
+	for {
+		ad, err := obj.NextDomain(hEnum)
+		if err != nil {
+			if strings.HasSuffix(err.Error(), "0x1") {
+				break
+			}
+			return nil, err
+		}
+		thisName, err := ad.GetFriendlyName()
+		if err != nil {
+			return nil, err
+		}
+		if strings.EqualFold(dName, thisName) {
+			return ad, nil
+		}
+	}
+	return nil, fmt.Errorf("could not find domain: %s", dName)
+}
+
 // EnumDomains Gets an enumerator for the domains in the current process.
 // HRESULT EnumDomains (
 //
@@ -222,6 +247,7 @@ func (obj *ICORRuntimeHost) EnumDomains() (hEnum windows.Handle, err error) {
 
 	hr, _, err := syscall.SyscallN(
 		obj.vtbl.EnumDomains,
+		0, //I don't know why
 		(uintptr(unsafe.Pointer(&hEnum))),
 	)
 
@@ -237,25 +263,26 @@ func (obj *ICORRuntimeHost) EnumDomains() (hEnum windows.Handle, err error) {
 	return
 }
 
-func (obj *ICORRuntimeHost) NextDomain(hDomainEnum windows.Handle, iunknownptr *IUnknown) error {
+func (obj *ICORRuntimeHost) NextDomain(hDomainEnum windows.Handle) (ad *AppDomain, err error) {
 	debugPrint("Entering into icorruntimehost.NextDomain()...")
-	var err error
+	var iu *IUnknown
 	hr, _, err := syscall.SyscallN(
 		obj.vtbl.NextDomain,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(hDomainEnum),
-		uintptr(unsafe.Pointer(&iunknownptr)),
+		uintptr(unsafe.Pointer(&iu)),
 	)
 	if err != syscall.Errno(0) {
 		err = fmt.Errorf("the ICORRuntimeHost::NextDomain method returned an error:\n%s", err)
-		return err
+		return
 	}
 	if hr != S_OK {
 		err = fmt.Errorf("the ICORRuntimeHost::NextDomain method returned a non-zero HRESULT: 0x%x", hr)
-		return err
+		return
 	}
-	err = nil
-	return err
+	err = iu.QueryInterface(IID_AppDomain, unsafe.Pointer(&ad))
+
+	return
 }
 
 func (obj *ICORRuntimeHost) CloseEnum(hDomainEnum windows.Handle) (err error) {
