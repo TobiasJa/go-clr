@@ -1,14 +1,15 @@
+//go:build windows
 // +build windows
 
 package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 	"runtime"
 
-	clr "github.com/Ne0nd0g/go-clr"
+	clr "github.com/tobiasja/go-clr"
 )
 
 func main() {
@@ -25,7 +26,7 @@ func main() {
 	fmt.Printf("[+] DLL Return Code: %d\n", ret)
 
 	fmt.Println("[+] Executing EXE from memory")
-	exebytes, err := ioutil.ReadFile("helloworld.exe")
+	exebytes, err := os.ReadFile("helloworld.exe")
 	if err != nil {
 		log.Fatal(err)
 	}

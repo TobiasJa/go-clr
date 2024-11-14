@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package clr
@@ -105,10 +106,12 @@ func (obj *MethodInfo) Release() uintptr {
 }
 
 // Invoke_3 Invokes the method or constructor reflected by this MethodInfo instance.
-//      virtual HRESULT __stdcall Invoke_3 (
-//      /*[in]*/ VARIANT obj,
-//      /*[in]*/ SAFEARRAY * parameters,
-//      /*[out,retval]*/ VARIANT * pRetVal ) = 0;
+//
+//	virtual HRESULT __stdcall Invoke_3 (
+//	/*[in]*/ VARIANT obj,
+//	/*[in]*/ SAFEARRAY * parameters,
+//	/*[out,retval]*/ VARIANT * pRetVal ) = 0;
+//
 // https://docs.microsoft.com/en-us/dotnet/api/system.reflection.methodbase.invoke?view=net-5.0
 func (obj *MethodInfo) Invoke_3(variantObj Variant, parameters *SafeArray) (err error) {
 	debugPrint("Entering into methodinfo.Invoke_3()...")
@@ -165,6 +168,7 @@ func (obj *MethodInfo) Invoke_3(variantObj Variant, parameters *SafeArray) (err 
 			return
 		}
 		err = fmt.Errorf("the Assembly::Invoke_3 method returned a non-zero HRESULT: 0x%x with an IErrorInfo description of: %s", hr, *desc)
+		return
 	}
 	if hr != S_OK {
 		err = fmt.Errorf("the Assembly::Invoke_3 method returned a non-zero HRESULT: 0x%x", hr)

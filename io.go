@@ -6,6 +6,7 @@ package clr
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -144,7 +145,7 @@ func ReadStdoutStderr() (stdout string, stderr string, err error) {
 		for e := range errorschan {
 			totalErrors += e.Error()
 		}
-		err = fmt.Errorf(totalErrors)
+		err = errors.New(totalErrors)
 		return
 	}
 

@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 // C2Framework is an example of how a Command & Control (C2) Framework could load the CLR,
@@ -11,11 +12,10 @@ import (
 	// Standard
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 
-	clr "github.com/Ne0nd0g/go-clr"
+	clr "github.com/tobiasja/go-clr"
 )
 
 func main() {
@@ -57,9 +57,9 @@ func main() {
 	}
 
 	// Get Rubeus
-	rubeusBytes, err := ioutil.ReadFile(rubeusPath)
+	rubeusBytes, err := os.ReadFile(rubeusPath)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("there was an error reading in the Rubeus file from %s:\n%s", rubeusPath, err))
+		log.Fatalf("there was an error reading in the Rubeus file from %s:\n%s", rubeusPath, err)
 	}
 	if *verbose {
 		fmt.Printf("[-] Ingested %d assembly bytes\n", len(rubeusBytes))
@@ -112,9 +112,9 @@ func main() {
 	}
 
 	// Get Seatbelt
-	seatbeltBytes, err := ioutil.ReadFile(seatbeltPath)
+	seatbeltBytes, err := os.ReadFile(seatbeltPath)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("there was an error reading in the Seatbelt file from %s:\n%s", seatbeltPath, err))
+		log.Fatalf("there was an error reading in the Seatbelt file from %s:\n%s", seatbeltPath, err)
 	}
 
 	// Load assembly into default AppDomain
@@ -164,9 +164,9 @@ func main() {
 	}
 
 	// Get SharpUp
-	sharpUpBytes, err := ioutil.ReadFile(sharpupPath)
+	sharpUpBytes, err := os.ReadFile(sharpupPath)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("there was an error reading in the SharpUp file from %s:\n%s", sharpupPath, err))
+		log.Fatalf("there was an error reading in the SharpUp file from %s:\n%s", sharpupPath, err)
 	}
 
 	// Load assembly into default AppDomain

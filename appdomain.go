@@ -314,10 +314,6 @@ func (obj *AppDomain) ListAssemblies() (assemblies []*Assembly, err error) {
 			return nil, err
 		}
 		app := (*Assembly)(pApp)
-
-		if err != nil {
-			return nil, err
-		}
 		assemblies = append(assemblies, app)
 	}
 	return

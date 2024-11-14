@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package main
@@ -8,18 +9,12 @@ import (
 	"syscall"
 	"unsafe"
 
-	clr "github.com/Ne0nd0g/go-clr"
+	clr "github.com/tobiasja/go-clr"
 )
 
 func must(err error) {
 	if err != nil {
 		log.Fatal(err)
-	}
-}
-
-func checkOK(hr uintptr, caller string) {
-	if hr != 0x0 {
-		log.Fatalf("%s returned 0x%x", caller, hr)
 	}
 }
 

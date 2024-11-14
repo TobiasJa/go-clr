@@ -1,10 +1,10 @@
+//go:build windows
 // +build windows
 
 package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"runtime"
@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	clr "github.com/Ne0nd0g/go-clr"
+	clr "github.com/tobiasja/go-clr"
 )
 
 func must(err error) {
@@ -36,7 +36,7 @@ func init() {
 
 func main() {
 	filename := os.Args[1]
-	exebytes, err := ioutil.ReadFile(filename)
+	exebytes, err := os.ReadFile(filename)
 	must(err)
 	runtime.KeepAlive(exebytes)
 
@@ -104,7 +104,7 @@ func main() {
 			log.Fatal("the assembly requires arguments but none were provided\nUsage: EXEfromMemory.exe <exe_file> <exe_args>")
 		}
 		if paramSafeArray, err = clr.PrepareParameters(params); err != nil {
-			log.Fatal(fmt.Sprintf("there was an error preparing the assembly arguments:\r\n%s", err))
+			log.Fatalf("there was an error preparing the assembly arguments:\r\n%s", err)
 		}
 	}
 

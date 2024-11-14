@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package clr
@@ -14,15 +15,6 @@ import (
 )
 
 var Debug = false
-
-// checkOK evaluates a HRESULT code for a caller and determines if there was an error
-func checkOK(hr uintptr, caller string) error {
-	if hr != S_OK {
-		return fmt.Errorf("%s returned 0x%08x", caller, hr)
-	} else {
-		return nil
-	}
-}
 
 func utf16Le(s string) []byte {
 	enc := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewEncoder()

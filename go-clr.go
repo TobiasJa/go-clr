@@ -26,7 +26,7 @@ func GetInstalledRuntimes(metahost *ICLRMetaHost) ([]string, error) {
 		var fetched = uint32(0)
 		hr, err = enumICLRRuntimeInfo.Next(1, unsafe.Pointer(&runtimeInfo), &fetched)
 		if err != nil {
-			return runtimes, fmt.Errorf("InstalledRuntimes Next Error:\r\n%s\n", err)
+			return runtimes, fmt.Errorf("InstalledRuntimes Next Error:\r\n%s", err)
 		}
 		if hr == S_FALSE {
 			break
@@ -41,7 +41,7 @@ func GetInstalledRuntimes(metahost *ICLRMetaHost) ([]string, error) {
 		runtimes = append(runtimes, version)
 	}
 	if len(runtimes) == 0 {
-		return runtimes, fmt.Errorf("Could not find any installed runtimes")
+		return runtimes, fmt.Errorf("could not find any installed runtimes")
 	}
 	return runtimes, err
 }
@@ -247,6 +247,7 @@ func LoadCLR(targetRuntime string) (runtimeHost *ICORRuntimeHost, err error) {
 	}
 	if !isLoadable {
 		err = fmt.Errorf("%s is not loadable for some reason", latestRuntime)
+		return
 	}
 
 	return GetICORRuntimeHost(runtimeInfo)
