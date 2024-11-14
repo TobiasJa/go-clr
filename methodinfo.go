@@ -69,9 +69,8 @@ type MethodInfoVtbl struct {
 
 func (obj *MethodInfo) QueryInterface(riid windows.GUID, ppvObject unsafe.Pointer) error {
 	debugPrint("Entering into methodinfo.QueryInterface()...")
-	hr, _, err := syscall.Syscall(
+	hr, _, err := syscall.SyscallN(
 		obj.vtbl.QueryInterface,
-		3,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&riid)), // A reference to the interface identifier (IID) of the interface being queried for.
 		uintptr(ppvObject),
@@ -86,22 +85,18 @@ func (obj *MethodInfo) QueryInterface(riid windows.GUID, ppvObject unsafe.Pointe
 }
 
 func (obj *MethodInfo) AddRef() uintptr {
-	ret, _, _ := syscall.Syscall(
+	ret, _, _ := syscall.SyscallN(
 		obj.vtbl.AddRef,
-		1,
 		uintptr(unsafe.Pointer(obj)),
-		0,
-		0)
+	)
 	return ret
 }
 
 func (obj *MethodInfo) Release() uintptr {
-	ret, _, _ := syscall.Syscall(
+	ret, _, _ := syscall.SyscallN(
 		obj.vtbl.Release,
-		1,
 		uintptr(unsafe.Pointer(obj)),
-		0,
-		0)
+	)
 	return ret
 }
 
@@ -116,15 +111,12 @@ func (obj *MethodInfo) Release() uintptr {
 func (obj *MethodInfo) Invoke_3(variantObj Variant, parameters *SafeArray) (err error) {
 	debugPrint("Entering into methodinfo.Invoke_3()...")
 	var pRetVal *Variant
-	hr, _, err := syscall.Syscall6(
+	hr, _, err := syscall.SyscallN(
 		obj.vtbl.Invoke_3,
-		4,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&variantObj)),
 		uintptr(unsafe.Pointer(parameters)),
 		uintptr(unsafe.Pointer(pRetVal)),
-		0,
-		0,
 	)
 	if err != syscall.Errno(0) {
 		err = fmt.Errorf("the MethodInfo::Invoke_3 method returned an error:\r\n%s", err)
@@ -190,12 +182,10 @@ func (obj *MethodInfo) Invoke_3(variantObj Variant, parameters *SafeArray) (err 
 func (obj *MethodInfo) GetString() (str string, err error) {
 	debugPrint("Entering into methodinfo.GetString()...")
 	var object *string
-	hr, _, err := syscall.Syscall(
+	hr, _, err := syscall.SyscallN(
 		obj.vtbl.get_ToString,
-		2,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&object)),
-		0,
 	)
 	if err != syscall.Errno(0) {
 		err = fmt.Errorf("the MethodInfo::ToString method returned an error:\r\n%s", err)

@@ -63,14 +63,13 @@ func main() {
 	err = runtimeInfo.BindAsLegacyV2Runtime()
 	must(err)
 
-	var runtimeHost *clr.ICORRuntimeHost
-	err = runtimeInfo.GetInterface(clr.CLSID_CorRuntimeHost, clr.IID_ICorRuntimeHost, unsafe.Pointer(&runtimeHost))
+	runtimeHost, err := runtimeInfo.GetInterface(clr.CLSID_CorRuntimeHost, clr.IID_ICorRuntimeHost)
 	must(err)
-	err = runtimeHost.Start()
+	err = runtimeHost.(*clr.ICORRuntimeHost).Start()
 	must(err)
 	fmt.Println("[+] Loaded CLR into this process")
 
-	iu, err := runtimeHost.GetDefaultDomain()
+	iu, err := runtimeHost.(*clr.ICORRuntimeHost).GetDefaultDomain()
 	must(err)
 
 	var appDomain *clr.AppDomain
@@ -117,7 +116,7 @@ func main() {
 	must(err)
 
 	appDomain.Release()
-	runtimeHost.Release()
+	runtimeHost.(*clr.ICORRuntimeHost).Release()
 	runtimeInfo.Release()
 	metaHost.Release()
 }

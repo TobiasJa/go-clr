@@ -93,9 +93,8 @@ func CLRCreateInstance(clsid, riid windows.GUID) (ppInterface *ICLRMetaHost, err
 
 func (obj *ICLRMetaHost) QueryInterface(riid windows.GUID, ppvObject unsafe.Pointer) error {
 	debugPrint("Entering into icorruntimehost.QueryInterface()...")
-	hr, _, err := syscall.Syscall(
+	hr, _, err := syscall.SyscallN(
 		obj.vtbl.QueryInterface,
-		3,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&riid)), // A reference to the interface identifier (IID) of the interface being queried for.
 		uintptr(ppvObject),
@@ -110,22 +109,18 @@ func (obj *ICLRMetaHost) QueryInterface(riid windows.GUID, ppvObject unsafe.Poin
 }
 
 func (obj *ICLRMetaHost) AddRef() uintptr {
-	ret, _, _ := syscall.Syscall(
+	ret, _, _ := syscall.SyscallN(
 		obj.vtbl.AddRef,
-		1,
 		uintptr(unsafe.Pointer(obj)),
-		0,
-		0)
+	)
 	return ret
 }
 
 func (obj *ICLRMetaHost) Release() uintptr {
-	ret, _, _ := syscall.Syscall(
+	ret, _, _ := syscall.SyscallN(
 		obj.vtbl.Release,
-		1,
 		uintptr(unsafe.Pointer(obj)),
-		0,
-		0)
+	)
 	return ret
 }
 
@@ -138,12 +133,10 @@ func (obj *ICLRMetaHost) Release() uintptr {
 // https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrmetahost-enumerateinstalledruntimes-method
 func (obj *ICLRMetaHost) EnumerateInstalledRuntimes() (ppEnumerator *IEnumUnknown, err error) {
 	debugPrint("Entering into iclrmetahost.EnumerateInstalledRuntimes()...")
-	hr, _, err := syscall.Syscall(
+	hr, _, err := syscall.SyscallN(
 		obj.vtbl.EnumerateInstalledRuntimes,
-		2,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&ppEnumerator)),
-		0,
 	)
 	if err != syscall.Errno(0) {
 		err = fmt.Errorf("there was an error calling the ICLRMetaHost::EnumerateInstalledRuntimes method:\r\n%s", err)
@@ -170,15 +163,12 @@ func (obj *ICLRMetaHost) EnumerateInstalledRuntimes() (ppEnumerator *IEnumUnknow
 func (obj *ICLRMetaHost) GetRuntime(pwzVersion *uint16, riid windows.GUID) (ppRuntime *ICLRRuntimeInfo, err error) {
 	debugPrint("Entering into iclrmetahost.GetRuntime()...")
 
-	hr, _, err := syscall.Syscall6(
+	hr, _, err := syscall.SyscallN(
 		obj.vtbl.GetRuntime,
-		4,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(pwzVersion)),
 		uintptr(unsafe.Pointer(&IID_ICLRRuntimeInfo)),
 		uintptr(unsafe.Pointer(&ppRuntime)),
-		0,
-		0,
 	)
 
 	if err != syscall.Errno(0) {

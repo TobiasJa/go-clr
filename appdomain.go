@@ -110,32 +110,28 @@ func GetAppDomain(runtimeHost *ICORRuntimeHost) (appDomain *AppDomain, err error
 
 func (obj *AppDomain) QueryInterface(riid *windows.GUID, ppvObject *uintptr) uintptr {
 	debugPrint("Entering into appdomain.QueryInterface()...")
-	ret, _, _ := syscall.Syscall(
+	ret, _, _ := syscall.SyscallN(
 		obj.vtbl.QueryInterface,
-		3,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(riid)),
-		uintptr(unsafe.Pointer(ppvObject)))
+		uintptr(unsafe.Pointer(ppvObject)),
+	)
 	return ret
 }
 
 func (obj *AppDomain) AddRef() uintptr {
-	ret, _, _ := syscall.Syscall(
+	ret, _, _ := syscall.SyscallN(
 		obj.vtbl.AddRef,
-		1,
 		uintptr(unsafe.Pointer(obj)),
-		0,
-		0)
+	)
 	return ret
 }
 
 func (obj *AppDomain) Release() uintptr {
-	ret, _, _ := syscall.Syscall(
+	ret, _, _ := syscall.SyscallN(
 		obj.vtbl.Release,
-		1,
 		uintptr(unsafe.Pointer(obj)),
-		0,
-		0)
+	)
 	return ret
 }
 
@@ -143,11 +139,9 @@ func (obj *AppDomain) Release() uintptr {
 // https://docs.microsoft.com/en-us/dotnet/api/system.object.gethashcode?view=netframework-4.8#System_Object_GetHashCode
 func (obj *AppDomain) GetHashCode() (int32, error) {
 	debugPrint("Entering into appdomain.GetHashCode()...")
-	ret, _, err := syscall.Syscall(
+	ret, _, err := syscall.SyscallN(
 		obj.vtbl.GetHashCode,
-		2,
 		uintptr(unsafe.Pointer(obj)),
-		0,
 		0,
 	)
 	if err != syscall.Errno(0) {
@@ -161,12 +155,12 @@ func (obj *AppDomain) GetHashCode() (int32, error) {
 func (obj *AppDomain) GetFriendlyName() (name string, err error) {
 	debugPrint("Entering into appdomain.GetFriendlyName()...")
 	var bstrFriendlyname unsafe.Pointer
-	hr, _, err := syscall.Syscall(
+	hr, _, err := syscall.SyscallN(
 		obj.vtbl.get_FriendlyName,
-		3,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&bstrFriendlyname)),
-		0)
+		0,
+	)
 	if err != syscall.Errno(0) {
 		return "", fmt.Errorf("the appdomain.GetFriendlyName function returned an error:\r\n%s", err)
 	}
@@ -184,9 +178,8 @@ func (obj *AppDomain) GetFriendlyName() (name string, err error) {
 // https://docs.microsoft.com/en-us/dotnet/api/system.appdomain.load?view=net-5.0
 func (obj *AppDomain) Load_3(rawAssembly *SafeArray) (assembly *Assembly, err error) {
 	debugPrint("Entering into appdomain.Load_3()...")
-	hr, _, err := syscall.Syscall(
+	hr, _, err := syscall.SyscallN(
 		obj.vtbl.Load_3,
-		3,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(rawAssembly)),
 		uintptr(unsafe.Pointer(&assembly)),
@@ -212,12 +205,10 @@ func (obj *AppDomain) Load_3(rawAssembly *SafeArray) (assembly *Assembly, err er
 func (obj *AppDomain) ToString() (domain string, err error) {
 	debugPrint("Entering into appdomain.ToString()...")
 	var pDomain *string
-	hr, _, err := syscall.Syscall(
+	hr, _, err := syscall.SyscallN(
 		obj.vtbl.get_ToString,
-		2,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&pDomain)),
-		0,
 	)
 
 	if err != syscall.Errno(0) {

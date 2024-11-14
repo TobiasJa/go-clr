@@ -73,21 +73,19 @@ type ICORRuntimeHostVtbl struct {
 // from memory (afaict)
 func GetICORRuntimeHost(runtimeInfo *ICLRRuntimeInfo) (*ICORRuntimeHost, error) {
 	debugPrint("Entering into icorruntimehost.GetICORRuntimeHost()...")
-	var runtimeHost *ICORRuntimeHost
-	err := runtimeInfo.GetInterface(CLSID_CorRuntimeHost, IID_ICorRuntimeHost, unsafe.Pointer(&runtimeHost))
+	runtimeHost, err := runtimeInfo.GetInterface(CLSID_CorRuntimeHost, IID_ICorRuntimeHost)
 	if err != nil {
 		return nil, err
 	}
 
-	err = runtimeHost.Start()
-	return runtimeHost, err
+	err = runtimeHost.(*ICORRuntimeHost).Start()
+	return runtimeHost.(*ICORRuntimeHost), err
 }
 
 func (obj *ICORRuntimeHost) QueryInterface(riid windows.GUID, ppvObject unsafe.Pointer) error {
 	debugPrint("Entering into icorruntimehost.QueryInterface()...")
-	hr, _, err := syscall.Syscall(
+	hr, _, err := syscall.SyscallN(
 		obj.vtbl.QueryInterface,
-		3,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&riid)), // A reference to the interface identifier (IID) of the interface being queried for.
 		uintptr(ppvObject),
@@ -104,22 +102,18 @@ func (obj *ICORRuntimeHost) QueryInterface(riid windows.GUID, ppvObject unsafe.P
 }
 
 func (obj *ICORRuntimeHost) AddRef() uintptr {
-	ret, _, _ := syscall.Syscall(
+	ret, _, _ := syscall.SyscallN(
 		obj.vtbl.AddRef,
-		1,
 		uintptr(unsafe.Pointer(obj)),
-		0,
-		0)
+	)
 	return ret
 }
 
 func (obj *ICORRuntimeHost) Release() uintptr {
-	ret, _, _ := syscall.Syscall(
+	ret, _, _ := syscall.SyscallN(
 		obj.vtbl.Release,
-		1,
 		uintptr(unsafe.Pointer(obj)),
-		0,
-		0)
+	)
 	return ret
 }
 
@@ -128,12 +122,9 @@ func (obj *ICORRuntimeHost) Release() uintptr {
 // https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/icorruntimehost-start-method
 func (obj *ICORRuntimeHost) Start() error {
 	debugPrint("Entering into icorruntimehost.Start()...")
-	hr, _, err := syscall.Syscall(
+	hr, _, err := syscall.SyscallN(
 		obj.vtbl.Start,
-		1,
 		uintptr(unsafe.Pointer(obj)),
-		0,
-		0,
 	)
 	if err != syscall.Errno(0) {
 		// The system could not find the environment option that was entered.
@@ -155,12 +146,10 @@ func (obj *ICORRuntimeHost) Start() error {
 // https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/icorruntimehost-getdefaultdomain-method
 func (obj *ICORRuntimeHost) GetDefaultDomain() (IUnknown *IUnknown, err error) {
 	debugPrint("Entering into icorruntimehost.GetDefaultDomain()...")
-	hr, _, err := syscall.Syscall(
+	hr, _, err := syscall.SyscallN(
 		obj.vtbl.GetDefaultDomain,
-		2,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&IUnknown)),
-		0,
 	)
 	if err != syscall.Errno(0) {
 		// The specified procedure could not be found.
@@ -188,15 +177,12 @@ func (obj *ICORRuntimeHost) CreateDomain(FriendlyName string) (pAppDomain *AppDo
 	pwzFriendlyName := &utf16Le(FriendlyName)[0]
 	var iu *IUnknown
 	debugPrint("Entering into icorruntimehost.CreateDomain()...")
-	hr, _, err := syscall.Syscall6(
+	hr, _, err := syscall.SyscallN(
 		obj.vtbl.CreateDomain,
-		4,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(pwzFriendlyName)), // [in] LPWSTR    pwzFriendlyName - An optional parameter used to give a friendly name to the domain
 		uintptr(unsafe.Pointer(nil)),             // [in] IUnknown* pIdentityArray - An optional array of pointers to IIdentity instances that represent evidence mapped through security policy to establish a permission set
 		uintptr(unsafe.Pointer(&iu)),             // [out] IUnknown** pAppDomain
-		0,
-		0,
 	)
 	if err != syscall.Errno(0) {
 		// The specified procedure could not be found.
@@ -247,7 +233,6 @@ func (obj *ICORRuntimeHost) EnumDomains() (hEnum windows.Handle, err error) {
 
 	hr, _, err := syscall.SyscallN(
 		obj.vtbl.EnumDomains,
-		0, //I don't know why
 		(uintptr(unsafe.Pointer(&hEnum))),
 	)
 

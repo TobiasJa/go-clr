@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"syscall"
-	"unsafe"
 
 	clr "github.com/tobiasja/go-clr"
 )
@@ -19,6 +18,8 @@ func must(err error) {
 }
 
 func main() {
+	fmt.Println(clr.CLSID_CLRMetaHost)
+	fmt.Println(clr.IID_ICLRMetaHost)
 	metahost, err := clr.CLRCreateInstance(clr.CLSID_CLRMetaHost, clr.IID_ICLRMetaHost)
 	must(err)
 	fmt.Println("[+] Got metahost")
@@ -40,11 +41,11 @@ func main() {
 		log.Fatal("[!] IsLoadable returned false. Bailing...")
 	}
 
-	var runtimeHost *clr.ICLRRuntimeHost
-	err = runtimeInfo.GetInterface(clr.CLSID_CLRRuntimeHost, clr.IID_ICLRRuntimeHost, unsafe.Pointer(&runtimeHost))
+	runtimeHost, err := runtimeInfo.GetInterface(clr.CLSID_CLRRuntimeHost, clr.IID_ICLRRuntimeHost)
 	must(err)
 
-	err = runtimeHost.Start()
+	fmt.Println("[+] Start Runtime Host")
+	err = runtimeHost.(*clr.ICLRRuntimeHost).Start()
 	must(err)
 	fmt.Println("[+] Loaded CLR into this process")
 
@@ -57,7 +58,7 @@ func main() {
 	must(err)
 	pArgument, err := syscall.UTF16PtrFromString("foobar")
 	must(err)
-	ret, err := runtimeHost.ExecuteInDefaultAppDomain(
+	ret, err := runtimeHost.(*clr.ICLRRuntimeHost).ExecuteInDefaultAppDomain(
 		pDLLPath,
 		pTypeName,
 		pMethodName,

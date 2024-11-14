@@ -75,34 +75,30 @@ type AssemblyVtbl struct {
 
 func (obj *Assembly) QueryInterface(riid *windows.GUID, ppvObject *uintptr) uintptr {
 	debugPrint("Entering into assembly.QueryInterface()...")
-	ret, _, _ := syscall.Syscall(
+	ret, _, _ := syscall.SyscallN(
 		obj.vtbl.QueryInterface,
-		3,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(riid)),
-		uintptr(unsafe.Pointer(ppvObject)))
+		uintptr(unsafe.Pointer(ppvObject)),
+	)
 	return ret
 }
 
 func (obj *Assembly) AddRef() uintptr {
 	debugPrint("Entering into assembly.AddRef()...")
-	ret, _, _ := syscall.Syscall(
+	ret, _, _ := syscall.SyscallN(
 		obj.vtbl.AddRef,
-		1,
 		uintptr(unsafe.Pointer(obj)),
-		0,
-		0)
+	)
 	return ret
 }
 
 func (obj *Assembly) Release() uintptr {
 	debugPrint("Entering into assembly.Release()...")
-	ret, _, _ := syscall.Syscall(
+	ret, _, _ := syscall.SyscallN(
 		obj.vtbl.Release,
-		1,
 		uintptr(unsafe.Pointer(obj)),
-		0,
-		0)
+	)
 	return ret
 }
 
@@ -115,12 +111,10 @@ func (obj *Assembly) Release() uintptr {
 // https://docs.microsoft.com/en-us/dotnet/api/system.reflection.methodinfo?view=netframework-4.8
 func (obj *Assembly) GetEntryPoint() (pRetVal *MethodInfo, err error) {
 	debugPrint("Entering into assembly.GetEntryPoint()...")
-	hr, _, err := syscall.Syscall(
+	hr, _, err := syscall.SyscallN(
 		obj.vtbl.get_EntryPoint,
-		2,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&pRetVal)),
-		0,
 	)
 	if err != syscall.Errno(0) {
 		err = fmt.Errorf("the Assembly::GetEntryPoint method returned an error:\r\n%s", err)
@@ -138,12 +132,11 @@ func (obj *Assembly) GetFullName() (string, error) {
 	debugPrint("Entering into assembly.GetFullName()...")
 	var err error
 	var pRetValBSTR unsafe.Pointer
-	hr, _, err := syscall.Syscall(
+	hr, _, err := syscall.SyscallN(
 		obj.vtbl.get_FullName,
-		2,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&pRetValBSTR)),
-		0)
+	)
 	if err != syscall.Errno(0) {
 		err = fmt.Errorf("the Assembly::GetFullName method returned an error:\r\n%s", err)
 		return "", err

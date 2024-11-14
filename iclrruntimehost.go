@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package clr
@@ -45,33 +46,28 @@ type ICLRRuntimeHostVtbl struct {
 // returns an ICLRRuntimeHost and loads it into the current process
 func GetICLRRuntimeHost(runtimeInfo *ICLRRuntimeInfo) (*ICLRRuntimeHost, error) {
 	debugPrint("Entering into iclrruntimehost.GetICLRRuntimeHost()...")
-	var runtimeHost *ICLRRuntimeHost
-	err := runtimeInfo.GetInterface(CLSID_CLRRuntimeHost, IID_ICLRRuntimeHost, unsafe.Pointer(&runtimeHost))
+	runtimeHost, err := runtimeInfo.GetInterface(CLSID_CLRRuntimeHost, IID_ICLRRuntimeHost)
 	if err != nil {
 		return nil, err
 	}
 
-	err = runtimeHost.Start()
-	return runtimeHost, err
+	err = runtimeHost.(*ICLRRuntimeHost).Start()
+	return runtimeHost.(*ICLRRuntimeHost), err
 }
 
 func (obj *ICLRRuntimeHost) AddRef() uintptr {
-	ret, _, _ := syscall.Syscall(
+	ret, _, _ := syscall.SyscallN(
 		obj.vtbl.AddRef,
-		1,
 		uintptr(unsafe.Pointer(obj)),
-		0,
-		0)
+	)
 	return ret
 }
 
 func (obj *ICLRRuntimeHost) Release() uintptr {
-	ret, _, _ := syscall.Syscall(
+	ret, _, _ := syscall.SyscallN(
 		obj.vtbl.Release,
-		1,
 		uintptr(unsafe.Pointer(obj)),
-		0,
-		0)
+	)
 	return ret
 }
 
@@ -80,15 +76,13 @@ func (obj *ICLRRuntimeHost) Release() uintptr {
 // https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrruntimehost-start-method
 func (obj *ICLRRuntimeHost) Start() error {
 	debugPrint("Entering into iclrruntimehost.Start()...")
-	hr, _, err := syscall.Syscall(
+	hr, _, err := syscall.SyscallN(
 		obj.vtbl.Start,
-		1,
 		uintptr(unsafe.Pointer(obj)),
-		0,
-		0,
 	)
 	if err != syscall.Errno(0) {
-		return fmt.Errorf("the ICLRRuntimeHost::Start method returned an error:\r\n%s", err)
+		//return fmt.Errorf("the ICLRRuntimeHost::Start method returned an error:\r\n%s", err)
+		debugPrint(fmt.Sprintf("the ICLRRuntimeHost::Start method returned an error:\r\n%s", err.Error()))
 	}
 	if hr != S_OK {
 		return fmt.Errorf("the ICLRRuntimeHost::Start method method returned a non-zero HRESULT: 0x%x", hr)
@@ -98,28 +92,27 @@ func (obj *ICLRRuntimeHost) Start() error {
 
 // ExecuteInDefaultAppDomain Calls the specified method of the specified type in the specified managed assembly.
 // HRESULT ExecuteInDefaultAppDomain (
-//   [in] LPCWSTR pwzAssemblyPath,
-//   [in] LPCWSTR pwzTypeName,
-//   [in] LPCWSTR pwzMethodName,
-//   [in] LPCWSTR pwzArgument,
+//
+//	[in] LPCWSTR pwzAssemblyPath,
+//	[in] LPCWSTR pwzTypeName,
+//	[in] LPCWSTR pwzMethodName,
+//	[in] LPCWSTR pwzArgument,
+//
 // [out] DWORD *pReturnValue
 // );
 // An LPCWSTR is a 32-bit pointer to a constant string of 16-bit Unicode characters, which MAY be null-terminated.
 // Use syscall.UTF16PtrFromString to turn a string into a LPCWSTR
 // https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrruntimehost-executeindefaultappdomain-method
 func (obj *ICLRRuntimeHost) ExecuteInDefaultAppDomain(pwzAssemblyPath, pwzTypeName, pwzMethodName, pwzArgument *uint16) (pReturnValue *uint32, err error) {
-	hr, _, err := syscall.Syscall9(
+	hr, _, err := syscall.SyscallN(
 		obj.vtbl.ExecuteInDefaultAppDomain,
-		6,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(pwzAssemblyPath)),
 		uintptr(unsafe.Pointer(pwzTypeName)),
 		uintptr(unsafe.Pointer(pwzMethodName)),
 		uintptr(unsafe.Pointer(pwzArgument)),
 		uintptr(unsafe.Pointer(pReturnValue)),
-		0,
-		0,
-		0)
+	)
 	if err != syscall.Errno(0) {
 		err = fmt.Errorf("the ICLRRuntimeHost::ExecuteInDefaultAppDomain method returned an error:\r\n%s", err)
 		return
@@ -134,16 +127,16 @@ func (obj *ICLRRuntimeHost) ExecuteInDefaultAppDomain(pwzAssemblyPath, pwzTypeNa
 
 // GetCurrentAppDomainID Gets the numeric identifier of the AppDomain that is currently executing.
 // HRESULT GetCurrentAppDomainId(
-//   [out] DWORD* pdwAppDomainId
+//
+//	[out] DWORD* pdwAppDomainId
+//
 // );
 // https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrruntimehost-getcurrentappdomainid-method
 func (obj *ICLRRuntimeHost) GetCurrentAppDomainID() (pdwAppDomainId uint32, err error) {
-	hr, _, err := syscall.Syscall(
+	hr, _, err := syscall.SyscallN(
 		obj.vtbl.GetCurrentAppDomainId,
-		2,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&pdwAppDomainId)),
-		0,
 	)
 	if err != syscall.Errno(0) {
 		err = fmt.Errorf("the ICLRRuntimeHost::GetCurrentAppDomainID method returned an error:\r\n%s", err)

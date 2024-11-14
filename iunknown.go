@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package clr
@@ -33,15 +34,16 @@ type IUnknownVtbl struct {
 // identifying the interface by a reference to its interface identifier (IID).
 // If the COM object implements the interface, then it returns a pointer to that interface after calling IUnknown::AddRef on it.
 // HRESULT QueryInterface(
-//   REFIID riid,
-//   void   **ppvObject
+//
+//	REFIID riid,
+//	void   **ppvObject
+//
 // );
 // https://docs.microsoft.com/en-us/windows/win32/api/unknwn/nf-unknwn-iunknown-queryinterface(refiid_void)
 func (obj *IUnknown) QueryInterface(riid windows.GUID, ppvObject unsafe.Pointer) error {
 	debugPrint("Entering into iunknown.QueryInterface()...")
-	hr, _, err := syscall.Syscall(
+	hr, _, err := syscall.SyscallN(
 		obj.vtbl.QueryInterface,
-		3,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&riid)), // A reference to the interface identifier (IID) of the interface being queried for.
 		uintptr(ppvObject),
@@ -61,12 +63,9 @@ func (obj *IUnknown) QueryInterface(riid windows.GUID, ppvObject unsafe.Pointer)
 // https://docs.microsoft.com/en-us/windows/win32/api/unknwn/nf-unknwn-iunknown-addref
 func (obj *IUnknown) AddRef() (count uint32, err error) {
 	debugPrint("Entering into iunknown.AddRef()...")
-	ret, _, err := syscall.Syscall(
+	ret, _, err := syscall.SyscallN(
 		obj.vtbl.AddRef,
-		1,
 		uintptr(unsafe.Pointer(obj)),
-		0,
-		0,
 	)
 	if err != syscall.Errno(0) {
 		return 0, fmt.Errorf("the IUnknown::AddRef method returned an error:\r\n%s", err)
@@ -82,12 +81,9 @@ func (obj *IUnknown) AddRef() (count uint32, err error) {
 // https://docs.microsoft.com/en-us/windows/win32/api/unknwn/nf-unknwn-iunknown-release
 func (obj *IUnknown) Release() (count uint32, err error) {
 	debugPrint("Entering into iunknown.Release()...")
-	ret, _, err := syscall.Syscall(
+	ret, _, err := syscall.SyscallN(
 		obj.vtbl.Release,
-		1,
 		uintptr(unsafe.Pointer(obj)),
-		0,
-		0,
 	)
 	if err != syscall.Errno(0) {
 		return 0, fmt.Errorf("the IUnknown::Release method returned an error:\r\n%s", err)
