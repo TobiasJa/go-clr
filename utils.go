@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
+	"syscall"
 	"unicode/utf16"
 	"unsafe"
 
@@ -88,4 +89,12 @@ func PrepareParameters(params []string) (*SafeArray, error) {
 		return nil, err
 	}
 	return paramsSafeArrayPtr, nil
+}
+
+// GetUserDefaultLCID retrieves current user default locale.
+func GetUserDefaultLCID() (lcid uint32) {
+	modole32 := syscall.MustLoadDLL("ole32.dll")
+	procGetUserDefaultLCID := modole32.MustFindProc("GetUserDefaultLCID")
+	ret, _, _ := procGetUserDefaultLCID.Call()
+	return uint32(ret)
 }

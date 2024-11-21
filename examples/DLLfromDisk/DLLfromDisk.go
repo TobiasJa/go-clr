@@ -45,7 +45,7 @@ func main() {
 	must(err)
 
 	fmt.Println("[+] Start Runtime Host")
-	err = runtimeHost.(*clr.ICLRRuntimeHost).Start()
+	err = (runtimeHost).(*clr.ICLRRuntimeHost).Start()
 	must(err)
 	fmt.Println("[+] Loaded CLR into this process")
 
@@ -64,6 +64,7 @@ func main() {
 		pMethodName,
 		pArgument,
 	)
+	must(err)
 	if *ret != 0 {
 		err = fmt.Errorf("the ICLRRuntimeHost::ExecuteInDefaultAppDomain method returned a non-zero return value: %d", *ret)
 	}

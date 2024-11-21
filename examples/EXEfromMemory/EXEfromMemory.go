@@ -65,16 +65,13 @@ func main() {
 
 	runtimeHost, err := runtimeInfo.GetInterface(clr.CLSID_CorRuntimeHost, clr.IID_ICorRuntimeHost)
 	must(err)
-	err = runtimeHost.(*clr.ICORRuntimeHost).Start()
+	err = (runtimeHost).(*clr.ICORRuntimeHost).Start()
 	must(err)
 	fmt.Println("[+] Loaded CLR into this process")
 
-	iu, err := runtimeHost.(*clr.ICORRuntimeHost).GetDefaultDomain()
+	appDomain, err := (runtimeHost).(*clr.ICORRuntimeHost).GetDefaultDomain()
 	must(err)
 
-	var appDomain *clr.AppDomain
-	err = iu.QueryInterface(clr.IID_AppDomain, unsafe.Pointer(&appDomain))
-	must(err)
 	fmt.Println("[+] Got default AppDomain")
 
 	safeArray, err := clr.CreateSafeArray(exebytes)
@@ -92,7 +89,7 @@ func main() {
 	fmt.Printf("[+] Executable entrypoint found at 0x%x\n", uintptr(unsafe.Pointer(methodInfo)))
 
 	var paramSafeArray *clr.SafeArray
-	methodSignature, err := methodInfo.GetString()
+	methodSignature, err := methodInfo.ToString()
 	if err != nil {
 		return
 	}
@@ -116,7 +113,7 @@ func main() {
 	must(err)
 
 	appDomain.Release()
-	runtimeHost.(*clr.ICORRuntimeHost).Release()
+	(runtimeHost).(*clr.ICORRuntimeHost).Release()
 	runtimeInfo.Release()
 	metaHost.Release()
 }

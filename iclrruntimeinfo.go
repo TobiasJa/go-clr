@@ -142,14 +142,31 @@ func (obj *ICLRRuntimeInfo) GetVersionString() (version string, err error) {
 // https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrruntimeinfo-getinterface-method
 func (obj *ICLRRuntimeInfo) GetInterface(rclsid windows.GUID, riid windows.GUID) (any, error) {
 	debugPrint("Entering into iclrruntimeinfo.GetInterface()...")
-	var ppRuntimeHost *ICLRRuntimeHost
-	hr, _, err := syscall.SyscallN(
-		obj.vtbl.GetInterface,
-		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(&rclsid)),
-		uintptr(unsafe.Pointer(&riid)),
-		uintptr(unsafe.Pointer(&ppRuntimeHost)),
-	)
+	var hr uintptr
+	var err syscall.Errno
+	var return_value any
+	switch rclsid {
+	case CLSID_CLRRuntimeHost:
+		var ppRuntimeHost *ICLRRuntimeHost
+		hr, _, err = syscall.SyscallN(
+			obj.vtbl.GetInterface,
+			uintptr(unsafe.Pointer(obj)),
+			uintptr(unsafe.Pointer(&rclsid)),
+			uintptr(unsafe.Pointer(&riid)),
+			uintptr(unsafe.Pointer(&ppRuntimeHost)),
+		)
+		return_value = ppRuntimeHost
+	case CLSID_CorRuntimeHost:
+		var ppRuntimeHost *ICORRuntimeHost
+		hr, _, err = syscall.SyscallN(
+			obj.vtbl.GetInterface,
+			uintptr(unsafe.Pointer(obj)),
+			uintptr(unsafe.Pointer(&rclsid)),
+			uintptr(unsafe.Pointer(&riid)),
+			uintptr(unsafe.Pointer(&ppRuntimeHost)),
+		)
+		return_value = ppRuntimeHost
+	}
 	// The syscall returns "The requested lookup key was not found in any active activation context." in the error position
 	// TODO Why is this error message returned?
 	if err != syscall.Errno(0) && err.Error() != "The requested lookup key was not found in any active activation context." {
@@ -158,7 +175,7 @@ func (obj *ICLRRuntimeInfo) GetInterface(rclsid windows.GUID, riid windows.GUID)
 	if hr != S_OK {
 		return nil, fmt.Errorf("the ICLRRuntimeInfo::GetInterface method returned a non-zero HRESULT: 0x%x", hr)
 	}
-	return ppRuntimeHost, nil
+	return return_value, nil
 }
 
 // BindAsLegacyV2Runtime binds the current runtime for all legacy common language runtime (CLR) version 2 activation policy decisions.

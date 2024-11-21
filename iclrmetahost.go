@@ -109,6 +109,7 @@ func (obj *ICLRMetaHost) QueryInterface(riid windows.GUID, ppvObject unsafe.Poin
 }
 
 func (obj *ICLRMetaHost) AddRef() uintptr {
+	debugPrint("Entering into assembly.AddRef()...")
 	ret, _, _ := syscall.SyscallN(
 		obj.vtbl.AddRef,
 		uintptr(unsafe.Pointer(obj)),

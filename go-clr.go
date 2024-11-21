@@ -163,7 +163,7 @@ func ExecuteByteArray(targetRuntime string, rawBytes []byte, params []string) (r
 	if err != nil {
 		return
 	}
-	appDomain, err := GetAppDomain(runtimeHost)
+	appDomain, err := GetDefaultAppDomain(runtimeHost)
 	if err != nil {
 		return
 	}
@@ -183,7 +183,7 @@ func ExecuteByteArray(targetRuntime string, rawBytes []byte, params []string) (r
 	}
 
 	var paramSafeArray *SafeArray
-	methodSignature, err := methodInfo.GetString()
+	methodSignature, err := methodInfo.ToString()
 	if err != nil {
 		return
 	}
@@ -257,7 +257,7 @@ func LoadCLR(targetRuntime string) (runtimeHost *ICORRuntimeHost, err error) {
 // loads the assembly into, executes the assembly, and then releases AppDomain
 // Intended to be used by C2 frameworks to quickly execute an assembly one time
 func ExecuteByteArrayDefaultDomain(runtimeHost *ICORRuntimeHost, rawBytes []byte, params []string) (stdout string, stderr string) {
-	appDomain, err := GetAppDomain(runtimeHost)
+	appDomain, err := GetDefaultAppDomain(runtimeHost)
 	if err != nil {
 		stderr = err.Error()
 		return
@@ -281,7 +281,7 @@ func ExecuteByteArrayDefaultDomain(runtimeHost *ICORRuntimeHost, rawBytes []byte
 	}
 
 	var paramSafeArray *SafeArray
-	methodSignature, err := methodInfo.GetString()
+	methodSignature, err := methodInfo.ToString()
 	if err != nil {
 		stderr = err.Error()
 		return
@@ -314,7 +314,7 @@ func ExecuteByteArrayDefaultDomain(runtimeHost *ICORRuntimeHost, rawBytes []byte
 // and returns the assembly's methodInfo structure. The intended purpose is for the assembly to be loaded
 // once but executed many times throughout the duration of the program. Commonly used with C2 frameworks
 func LoadAssembly(runtimeHost *ICORRuntimeHost, rawBytes []byte) (methodInfo *MethodInfo, err error) {
-	appDomain, err := GetAppDomain(runtimeHost)
+	appDomain, err := GetDefaultAppDomain(runtimeHost)
 	if err != nil {
 		return
 	}
@@ -335,7 +335,7 @@ func LoadAssembly(runtimeHost *ICORRuntimeHost, rawBytes []byte) (methodInfo *Me
 // program. Commonly used with C2 frameworks
 func InvokeAssembly(methodInfo *MethodInfo, params []string) (stdout string, stderr string) {
 	var paramSafeArray *SafeArray
-	methodSignature, err := methodInfo.GetString()
+	methodSignature, err := methodInfo.ToString()
 	if err != nil {
 		stderr = err.Error()
 		return

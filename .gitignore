@@ -1,5 +1,7 @@
 .idea
 __handlers__
 *.cs
+bin/
+cmd/
 scratch/
 static/

@@ -109,7 +109,7 @@ func (obj *MethodInfo) Release() uintptr {
 //
 // https://docs.microsoft.com/en-us/dotnet/api/system.reflection.methodbase.invoke?view=net-5.0
 func (obj *MethodInfo) Invoke_3(variantObj Variant, parameters *SafeArray) (err error) {
-	debugPrint("Entering into methodinfo.Invoke_3()...")
+	debugPrint("Entering into MethodInfo.Invoke_3()...")
 	var pRetVal *Variant
 	hr, _, err := syscall.SyscallN(
 		obj.vtbl.Invoke_3,
@@ -156,31 +156,31 @@ func (obj *MethodInfo) Invoke_3(variantObj Variant, parameters *SafeArray) (err 
 			return err
 		}
 		if desc == nil {
-			err = fmt.Errorf("the Assembly::Invoke_3 method returned a non-zero HRESULT: 0x%x", hr)
+			err = fmt.Errorf("the MethodInfo::Invoke_3 method returned a non-zero HRESULT: 0x%x", hr)
 			return
 		}
-		err = fmt.Errorf("the Assembly::Invoke_3 method returned a non-zero HRESULT: 0x%x with an IErrorInfo description of: %s", hr, *desc)
+		err = fmt.Errorf("the MethodInfo::Invoke_3 method returned a non-zero HRESULT: 0x%x with an IErrorInfo description of: %s", hr, *desc)
 		return
 	}
 	if hr != S_OK {
-		err = fmt.Errorf("the Assembly::Invoke_3 method returned a non-zero HRESULT: 0x%x", hr)
+		err = fmt.Errorf("the MethodInfo::Invoke_3 method returned a non-zero HRESULT: 0x%x", hr)
 		return
 	}
 
 	if pRetVal != nil {
-		err = fmt.Errorf("the Assembly::Invoke_3 method returned a non-zero pRetVal: %+v", pRetVal)
+		err = fmt.Errorf("the MethodInfo::Invoke_3 method returned a non-zero pRetVal: %+v", pRetVal)
 		return
 	}
 	err = nil
 	return
 }
 
-// GetString returns a string that represents the current object
+// ToString returns a string that represents the current object
 // a string version of the method's signature
 // public virtual string ToString ();
 // https://docs.microsoft.com/en-us/dotnet/api/system.object.tostring?view=net-5.0#System_Object_ToString
-func (obj *MethodInfo) GetString() (str string, err error) {
-	debugPrint("Entering into methodinfo.GetString()...")
+func (obj *MethodInfo) ToString() (string, error) {
+	debugPrint("Entering into MethodInfo.ToString()...")
 	var object *string
 	hr, _, err := syscall.SyscallN(
 		obj.vtbl.get_ToString,
@@ -188,14 +188,10 @@ func (obj *MethodInfo) GetString() (str string, err error) {
 		uintptr(unsafe.Pointer(&object)),
 	)
 	if err != syscall.Errno(0) {
-		err = fmt.Errorf("the MethodInfo::ToString method returned an error:\r\n%s", err)
-		return
+		return "", fmt.Errorf("the MethodInfo::ToString method returned an error:\r\n%s", err)
 	}
 	if hr != S_OK {
-		err = fmt.Errorf("the Assembly::ToString method returned a non-zero HRESULT: 0x%x", hr)
-		return
+		return "", fmt.Errorf("the MethodInfo::ToString method returned a non-zero HRESULT: 0x%x", hr)
 	}
-	err = nil
-	str = ReadUnicodeStr(unsafe.Pointer(object))
-	return
+	return ReadUnicodeStr(unsafe.Pointer(object)), nil
 }
