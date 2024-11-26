@@ -52,7 +52,7 @@ type AppDomainSetupVtbl struct {
 func (obj *AppDomainSetup) QueryInterface(riid windows.GUID) (unsafe.Pointer, error) {
 	debugPrint("Entering into AppDomainSetup.QueryInterface()...")
 	var ppvObject unsafe.Pointer
-	err := NewHResultChecker("AppDomainSetup::QueryInterface").CheckHResultError(syscall.SyscallN(
+	err := NewHResultChecker("AppDomainSetup::QueryInterface").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.QueryInterface,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&riid)),
@@ -64,26 +64,34 @@ func (obj *AppDomainSetup) QueryInterface(riid windows.GUID) (unsafe.Pointer, er
 	return ppvObject, nil
 }
 
-func (obj *AppDomainSetup) AddRef() error {
+func (obj *AppDomainSetup) AddRef() (uint32, error) {
 	debugPrint("Entering into AppDomainSetup.AddRef()...")
-	return NewHResultChecker("AppDomainSetup::AddRef").CheckHResultError(syscall.SyscallN(
+	ret, _, err := syscall.SyscallN(
 		obj.vtbl.AddRef,
 		uintptr(unsafe.Pointer(obj)),
-	))
+	)
+	if err != syscall.Errno(0) {
+		return 0, fmt.Errorf("the AppDomainSetup::AddRef method returned an error:\r\n%s", err)
+	}
+	return *(*uint32)(unsafe.Pointer(*((**uintptr)(unsafe.Pointer(&ret))))), nil
 }
 
-func (obj *AppDomainSetup) Release() error {
+func (obj *AppDomainSetup) Release() (uint32, error) {
 	debugPrint("Entering into AppDomainSetup.Release()...")
-	return NewHResultChecker("AppDomainSetup::Release").CheckHResultError(syscall.SyscallN(
+	ret, _, err := syscall.SyscallN(
 		obj.vtbl.Release,
 		uintptr(unsafe.Pointer(obj)),
-	))
+	)
+	if err != syscall.Errno(0) {
+		return 0, fmt.Errorf("the AppDomainSetup::Release method returned an error:\r\n%s", err)
+	}
+	return *(*uint32)(unsafe.Pointer(*((**uintptr)(unsafe.Pointer(&ret))))), nil
 }
 
 func (obj *AppDomainSetup) GetApplicationBase() (string, error) {
 	debugPrint("Entering into AppDomainSetup.GetApplicationBase()...")
 	var basePtr unsafe.Pointer
-	err := NewHResultChecker("AppDomainSetup::GetApplicationBase").CheckHResultError(syscall.SyscallN(
+	err := NewHResultChecker("AppDomainSetup::GetApplicationBase").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.get_ApplicationBase,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&basePtr)),
@@ -100,7 +108,7 @@ func (obj *AppDomainSetup) PutApplicationBase(base string) error {
 	if err != nil {
 		return fmt.Errorf("the AppDomainSetup::PutApplicationBase SysAllocString returned error: %v", err)
 	}
-	return NewHResultChecker("AppDomainSetup::PutApplicationBase").CheckHResultError(syscall.SyscallN(
+	return NewHResultChecker("AppDomainSetup::PutApplicationBase").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.put_ApplicationBase,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(basePtr),
@@ -110,7 +118,7 @@ func (obj *AppDomainSetup) PutApplicationBase(base string) error {
 func (obj *AppDomainSetup) GetApplicationName() (string, error) {
 	debugPrint("Entering into AppDomainSetup.GetApplicationName()...")
 	var namePtr unsafe.Pointer
-	err := NewHResultChecker("AppDomainSetup::GetApplicationName").CheckHResultError(syscall.SyscallN(
+	err := NewHResultChecker("AppDomainSetup::GetApplicationName").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.get_ApplicationName,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&namePtr)),
@@ -127,7 +135,7 @@ func (obj *AppDomainSetup) PutApplicationName(name string) error {
 	if err != nil {
 		return fmt.Errorf("the AppDomainSetup::PutApplicationName SysAllocString returned error: %v", err)
 	}
-	return NewHResultChecker("AppDomainSetup::PutApplicationName").CheckHResultError(syscall.SyscallN(
+	return NewHResultChecker("AppDomainSetup::PutApplicationName").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.put_ApplicationName,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(namePtr),
@@ -137,7 +145,7 @@ func (obj *AppDomainSetup) PutApplicationName(name string) error {
 func (obj *AppDomainSetup) GetCachePath() (string, error) {
 	debugPrint("Entering into AppDomainSetup.GetCachePath()...")
 	var cachePathPtr unsafe.Pointer
-	err := NewHResultChecker("AppDomainSetup::GetCachePath").CheckHResultError(syscall.SyscallN(
+	err := NewHResultChecker("AppDomainSetup::GetCachePath").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.get_CachePath,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&cachePathPtr)),
@@ -154,7 +162,7 @@ func (obj *AppDomainSetup) PutCachePath(cachePath string) error {
 	if err != nil {
 		return fmt.Errorf("the AppDomainSetup::PutCachePath SysAllocString returned error: %v", err)
 	}
-	return NewHResultChecker("AppDomainSetup::PutCachePath").CheckHResultError(syscall.SyscallN(
+	return NewHResultChecker("AppDomainSetup::PutCachePath").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.put_CachePath,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(cachePathPtr),
@@ -164,7 +172,7 @@ func (obj *AppDomainSetup) PutCachePath(cachePath string) error {
 func (obj *AppDomainSetup) GetConfigurationFile() (string, error) {
 	debugPrint("Entering into AppDomainSetup.GetConfigurationFile()...")
 	var configurationFilePtr unsafe.Pointer
-	err := NewHResultChecker("AppDomainSetup::GetConfigurationFile").CheckHResultError(syscall.SyscallN(
+	err := NewHResultChecker("AppDomainSetup::GetConfigurationFile").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.get_ConfigurationFile,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&configurationFilePtr)),
@@ -181,7 +189,7 @@ func (obj *AppDomainSetup) PutConfigurationFile(configurationFile string) error 
 	if err != nil {
 		return fmt.Errorf("the AppDomainSetup::PutConfigurationFile SysAllocString returned error: %v", err)
 	}
-	return NewHResultChecker("AppDomainSetup::PutConfigurationFile").CheckHResultError(syscall.SyscallN(
+	return NewHResultChecker("AppDomainSetup::PutConfigurationFile").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.put_ConfigurationFile,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(configurationFilePtr),
@@ -191,7 +199,7 @@ func (obj *AppDomainSetup) PutConfigurationFile(configurationFile string) error 
 func (obj *AppDomainSetup) GetDynamicBase() (string, error) {
 	debugPrint("Entering into AppDomainSetup.GetDynamicBase()...")
 	var dynamicBasePtr unsafe.Pointer
-	err := NewHResultChecker("AppDomainSetup::GetDynamicBase").CheckHResultError(syscall.SyscallN(
+	err := NewHResultChecker("AppDomainSetup::GetDynamicBase").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.get_DynamicBase,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&dynamicBasePtr)),
@@ -208,7 +216,7 @@ func (obj *AppDomainSetup) PutDynamicBase(dynamicBase string) error {
 	if err != nil {
 		return fmt.Errorf("the AppDomainSetup::PutDynamicBase SysAllocString returned error: %v", err)
 	}
-	return NewHResultChecker("AppDomainSetup::PutDynamicBase").CheckHResultError(syscall.SyscallN(
+	return NewHResultChecker("AppDomainSetup::PutDynamicBase").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.put_DynamicBase,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(dynamicBasePtr),
@@ -218,7 +226,7 @@ func (obj *AppDomainSetup) PutDynamicBase(dynamicBase string) error {
 func (obj *AppDomainSetup) GetLicenseFile() (string, error) {
 	debugPrint("Entering into AppDomainSetup.GetLicenseFile()...")
 	var licenseFilePtr unsafe.Pointer
-	err := NewHResultChecker("AppDomainSetup::GetLicenseFile").CheckHResultError(syscall.SyscallN(
+	err := NewHResultChecker("AppDomainSetup::GetLicenseFile").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.get_LicenseFile,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&licenseFilePtr)),
@@ -235,7 +243,7 @@ func (obj *AppDomainSetup) PutLicenseFile(licenseFile string) error {
 	if err != nil {
 		return fmt.Errorf("the AppDomainSetup::PutLicenseFile SysAllocString returned error: %v", err)
 	}
-	return NewHResultChecker("AppDomainSetup::PutLicenseFile").CheckHResultError(syscall.SyscallN(
+	return NewHResultChecker("AppDomainSetup::PutLicenseFile").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.put_LicenseFile,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(licenseFilePtr),
@@ -245,7 +253,7 @@ func (obj *AppDomainSetup) PutLicenseFile(licenseFile string) error {
 func (obj *AppDomainSetup) GetPrivateBinPath() (string, error) {
 	debugPrint("Entering into AppDomainSetup.GetPrivateBinPath()...")
 	var privateBinPathPtr unsafe.Pointer
-	err := NewHResultChecker("AppDomainSetup::GetPrivateBinPath").CheckHResultError(syscall.SyscallN(
+	err := NewHResultChecker("AppDomainSetup::GetPrivateBinPath").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.get_PrivateBinPath,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&privateBinPathPtr)),
@@ -262,7 +270,7 @@ func (obj *AppDomainSetup) PutPrivateBinPath(privateBinPath string) error {
 	if err != nil {
 		return fmt.Errorf("the AppDomainSetup::PutPrivateBinPath SysAllocString returned error: %v", err)
 	}
-	return NewHResultChecker("AppDomainSetup::PutPrivateBinPath").CheckHResultError(syscall.SyscallN(
+	return NewHResultChecker("AppDomainSetup::PutPrivateBinPath").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.put_PrivateBinPath,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(privateBinPathPtr),
@@ -272,7 +280,7 @@ func (obj *AppDomainSetup) PutPrivateBinPath(privateBinPath string) error {
 func (obj *AppDomainSetup) GetPrivateBinPathProbe() (string, error) {
 	debugPrint("Entering into AppDomainSetup.GetPrivateBinPathProbe()...")
 	var privateBinPathProbePtr unsafe.Pointer
-	err := NewHResultChecker("AppDomainSetup::GetPrivateBinPathProbe").CheckHResultError(syscall.SyscallN(
+	err := NewHResultChecker("AppDomainSetup::GetPrivateBinPathProbe").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.get_PrivateBinPathProbe,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&privateBinPathProbePtr)),
@@ -289,7 +297,7 @@ func (obj *AppDomainSetup) PutPrivateBinPathProbe(privateBinPathProbe string) er
 	if err != nil {
 		return fmt.Errorf("the AppDomainSetup::PutPrivateBinPathProbe SysAllocString returned error: %v", err)
 	}
-	return NewHResultChecker("AppDomainSetup::PutPrivateBinPathProbe").CheckHResultError(syscall.SyscallN(
+	return NewHResultChecker("AppDomainSetup::PutPrivateBinPathProbe").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.put_PrivateBinPathProbe,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(privateBinPathProbePtr),
@@ -299,7 +307,7 @@ func (obj *AppDomainSetup) PutPrivateBinPathProbe(privateBinPathProbe string) er
 func (obj *AppDomainSetup) GetShadowCopyDirectories() (string, error) {
 	debugPrint("Entering into AppDomainSetup.GetShadowCopyDirectories()...")
 	var shadowCopyDirectoriesPtr unsafe.Pointer
-	err := NewHResultChecker("AppDomainSetup::GetShadowCopyDirectories").CheckHResultError(syscall.SyscallN(
+	err := NewHResultChecker("AppDomainSetup::GetShadowCopyDirectories").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.get_ShadowCopyDirectories,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&shadowCopyDirectoriesPtr)),
@@ -316,7 +324,7 @@ func (obj *AppDomainSetup) PutShadowCopyDirectories(shadowCopyDirectories string
 	if err != nil {
 		return fmt.Errorf("the AppDomainSetup::PutShadowCopyDirectories SysAllocString returned error: %v", err)
 	}
-	return NewHResultChecker("AppDomainSetup::PutShadowCopyDirectories").CheckHResultError(syscall.SyscallN(
+	return NewHResultChecker("AppDomainSetup::PutShadowCopyDirectories").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.put_ShadowCopyDirectories,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(shadowCopyDirectoriesPtr),
@@ -326,7 +334,7 @@ func (obj *AppDomainSetup) PutShadowCopyDirectories(shadowCopyDirectories string
 func (obj *AppDomainSetup) GetShadowCopyFiles() (string, error) {
 	debugPrint("Entering into AppDomainSetup.GetShadowCopyFiles()...")
 	var shadowCopyFilesPtr unsafe.Pointer
-	err := NewHResultChecker("AppDomainSetup::GetShadowCopyFiles").CheckHResultError(syscall.SyscallN(
+	err := NewHResultChecker("AppDomainSetup::GetShadowCopyFiles").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.get_ShadowCopyFiles,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&shadowCopyFilesPtr)),
@@ -343,7 +351,7 @@ func (obj *AppDomainSetup) PutShadowCopyFiles(shadowCopyFiles string) error {
 	if err != nil {
 		return fmt.Errorf("the AppDomainSetup::PutShadowCopyFiles SysAllocString returned error: %v", err)
 	}
-	return NewHResultChecker("AppDomainSetup::PutShadowCopyFiles").CheckHResultError(syscall.SyscallN(
+	return NewHResultChecker("AppDomainSetup::PutShadowCopyFiles").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.put_ShadowCopyFiles,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(shadowCopyFilesPtr),

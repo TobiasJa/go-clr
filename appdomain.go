@@ -32,13 +32,13 @@ type AppDomainVtbl struct {
 	GetTypeInfo               uintptr
 	GetIDsOfNames             uintptr
 	Invoke                    uintptr
-	get_ToString              uintptr
+	GetToString               uintptr
 	Equals                    uintptr
 	GetHashCode               uintptr
 	GetType                   uintptr
 	InitializeLifetimeService uintptr
 	GetLifetimeService        uintptr
-	get_Evidence              uintptr
+	GetEvidence               uintptr
 	add_DomainUnload          uintptr
 	remove_DomainUnload       uintptr
 	add_AssemblyLoad          uintptr
@@ -78,10 +78,10 @@ type AppDomainVtbl struct {
 	ExecuteAssembly           uintptr
 	ExecuteAssembly_2         uintptr
 	ExecuteAssembly_3         uintptr
-	get_FriendlyName          uintptr
-	get_BaseDirectory         uintptr
-	get_RelativeSearchPath    uintptr
-	get_ShadowCopyFiles       uintptr
+	GetFriendlyName           uintptr
+	GetBaseDirectory          uintptr
+	GetRelativeSearchPath     uintptr
+	GetShadowCopyFiles        uintptr
 	GetAssemblies             uintptr
 	AppendPrivatePath         uintptr
 	ClearPrivatePath          uintptr
@@ -94,7 +94,7 @@ type AppDomainVtbl struct {
 	SetThreadPrincipal        uintptr
 	SetPrincipalPolicy        uintptr
 	DoCallBack                uintptr
-	get_DynamicDirectory      uintptr
+	GetDynamicDirectory       uintptr
 }
 
 // GetDefaultAppDomain is a wrapper function that returns an appDomain from an existing ICORRuntimeHost object
@@ -106,7 +106,7 @@ func GetDefaultAppDomain(runtimeHost *ICORRuntimeHost) (appDomain *AppDomain, er
 func (obj *AppDomain) QueryInterface(riid windows.GUID) (unsafe.Pointer, error) {
 	debugPrint("Entering into AppDomain.QueryInterface()...")
 	var ppvObject unsafe.Pointer
-	err := NewHResultChecker("AppDomain::QueryInterface").CheckHResultError(syscall.SyscallN(
+	err := NewHResultChecker("AppDomain::QueryInterface").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.QueryInterface,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&riid)),
@@ -120,7 +120,7 @@ func (obj *AppDomain) QueryInterface(riid windows.GUID) (unsafe.Pointer, error) 
 
 func (obj *AppDomain) AddRef() error {
 	debugPrint("Entering into AppDomain.AddRef()...")
-	return NewHResultChecker("AppDomain::AddRef").CheckHResultError(syscall.SyscallN(
+	return NewHResultChecker("AppDomain::AddRef").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.AddRef,
 		uintptr(unsafe.Pointer(obj)),
 	))
@@ -128,10 +128,29 @@ func (obj *AppDomain) AddRef() error {
 
 func (obj *AppDomain) Release() error {
 	debugPrint("Entering into AppDomain.Release()...")
-	return NewHResultChecker("AppDomain::Release").CheckHResultError(syscall.SyscallN(
+	return NewHResultChecker("AppDomain::Release").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.Release,
 		uintptr(unsafe.Pointer(obj)),
 	))
+}
+
+// ToString Obtains a string representation that includes the friendly name of the application domain and any context policies.
+// https://docs.microsoft.com/en-us/dotnet/api/system.appdomain.tostring?view=net-5.0#System_AppDomain_ToString
+func (obj *AppDomain) ToString() (string, error) {
+	debugPrint("Entering into AppDomain.ToString()...")
+	var pDomain *string
+	err := NewHResultChecker("AppDomain::GetToString").CheckHResultSyscallError(
+		syscall.SyscallN(
+			obj.vtbl.GetToString,
+			uintptr(unsafe.Pointer(obj)),
+			uintptr(unsafe.Pointer(&pDomain)),
+		),
+	)
+
+	if err != nil {
+		return "", err
+	}
+	return ReadUnicodeStr(unsafe.Pointer(pDomain)), nil
 }
 
 // GetHashCode serves as the default hash function.
@@ -141,7 +160,6 @@ func (obj *AppDomain) GetHashCode() (int32, error) {
 	ret, _, err := syscall.SyscallN(
 		obj.vtbl.GetHashCode,
 		uintptr(unsafe.Pointer(obj)),
-		0,
 	)
 	if err != syscall.Errno(0) {
 		return 0, fmt.Errorf("the AppDomain.GetHashCode function returned an error:\r\n%s", err)
@@ -150,69 +168,38 @@ func (obj *AppDomain) GetHashCode() (int32, error) {
 	return int32(ret), nil
 }
 
-// GetFriendlyName returns the friendlyname of the appdomain
-func (obj *AppDomain) GetFriendlyName() (string, error) {
-	debugPrint("Entering into AppDomain.GetFriendlyName()...")
-	var bstrFriendlyname unsafe.Pointer
-	hr, _, err := syscall.SyscallN(
-		obj.vtbl.get_FriendlyName,
-		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(&bstrFriendlyname)),
-		0,
+// virtual HRESULT __stdcall GetType (
+// /*[out,retval]*/ struct _Type * * pRetVal ) = 0;
+func (obj *AppDomain) GetType() (*Type, error) {
+	debugPrint("Entering into AppDomain.GetType()...")
+	var typePtr *Type
+	err := NewHResultChecker("AppDomain::GetType").CheckHResultSyscallError(
+		syscall.SyscallN(
+			obj.vtbl.GetType,
+			uintptr(unsafe.Pointer(obj)),
+			uintptr(unsafe.Pointer(&typePtr)),
+		),
 	)
-	if err != syscall.Errno(0) {
-		return "", fmt.Errorf("the AppDomain.GetFriendlyName function returned an error:\r\n%s", err)
-	}
-	if hr != S_OK {
-		return "", fmt.Errorf("the AppDomain.GetFriendlyName function returned a non-zero HRESULT: 0x%x", hr)
-	}
-	return ReadUnicodeStr(unsafe.Pointer(bstrFriendlyname)), nil
-}
-
-// Load_3 Loads an Assembly into this application domain.
-// virtual HRESULT __stdcall Load_3 (
-// /*[in]*/ SAFEARRAY * rawAssembly,
-// /*[out,retval]*/ struct _Assembly * * pRetVal ) = 0;
-// https://docs.microsoft.com/en-us/dotnet/api/system.appdomain.load?view=net-5.0
-func (obj *AppDomain) Load_3(rawAssembly *SafeArray) (*Assembly, error) {
-	debugPrint("Entering into appdomain.Load_3()...")
-	var assembly *Assembly
-	hr, _, err := syscall.SyscallN(
-		obj.vtbl.Load_3,
-		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(rawAssembly)),
-		uintptr(unsafe.Pointer(&assembly)),
-	)
-
-	if err != syscall.Errno(0) && err != syscall.Errno(1150) {
+	if err != nil {
 		return nil, err
 	}
-
-	if hr != S_OK {
-		return nil, fmt.Errorf("the appdomain.Load_3 function returned a non-zero HRESULT: 0x%x", hr)
-	}
-
-	return assembly, nil
+	return typePtr, nil
 }
 
-// ToString Obtains a string representation that includes the friendly name of the application domain and any context policies.
-// https://docs.microsoft.com/en-us/dotnet/api/system.appdomain.tostring?view=net-5.0#System_AppDomain_ToString
-func (obj *AppDomain) ToString() (string, error) {
-	debugPrint("Entering into AppDomain.ToString()...")
-	var pDomain *string
-	hr, _, err := syscall.SyscallN(
-		obj.vtbl.get_ToString,
-		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(&pDomain)),
+// _EvidencePtr GetEvidence ( );
+func (obj *AppDomain) GetEvidence() (*IUnknown, error) {
+	var evidence *IUnknown
+	err := NewHResultChecker("AppDomain::GetEvidence").CheckHResultSyscallError(
+		syscall.SyscallN(
+			obj.vtbl.GetEvidence,
+			uintptr(unsafe.Pointer(obj)),
+			uintptr(unsafe.Pointer(&evidence)),
+		),
 	)
-
-	if err != syscall.Errno(0) {
-		return "", fmt.Errorf("the AppDomain.ToString method retured an error:\r\n%s", err)
+	if err != nil {
+		return nil, err
 	}
-	if hr != S_OK {
-		return "", fmt.Errorf("the AppDomain.ToString method returned a non-zero HRESULT: 0x%x", hr)
-	}
-	return ReadUnicodeStr(unsafe.Pointer(pDomain)), nil
+	return evidence, nil
 }
 
 // Load_2 takes an assemblystring (name) and checks each Assembly in the appdomain for a prefix match (case insensitive). If a match is found, it is returned.
@@ -245,22 +232,138 @@ func (obj *AppDomain) Load_2(assemblyString string) (*Assembly, error) {
 	return nil, fmt.Errorf("could not find assembly with name %s", assemblyString)
 }
 
-func (obj *AppDomain) GetAssemblies() (assemblies []*Assembly, err error) {
+// Load_3 Loads an Assembly into this application domain.
+// virtual HRESULT __stdcall Load_3 (
+// /*[in]*/ SAFEARRAY * rawAssembly,
+// /*[out,retval]*/ struct _Assembly * * pRetVal ) = 0;
+// https://docs.microsoft.com/en-us/dotnet/api/system.appdomain.load?view=net-5.0
+func (obj *AppDomain) Load_3(rawAssembly *SafeArray) (*Assembly, error) {
+	debugPrint("Entering into appdomain.Load_3()...")
+	var assembly *Assembly
+	hr, _, err := syscall.SyscallN(
+		obj.vtbl.Load_3,
+		uintptr(unsafe.Pointer(obj)),
+		uintptr(unsafe.Pointer(rawAssembly)),
+		uintptr(unsafe.Pointer(&assembly)),
+	)
+
+	if err != syscall.Errno(0) && err != syscall.Errno(1150) {
+		return nil, err
+	}
+
+	if hr != S_OK {
+		return nil, fmt.Errorf("the appdomain.Load_3 function returned a non-zero HRESULT: 0x%x", hr)
+	}
+
+	return assembly, nil
+}
+
+// GetFriendlyName returns the friendlyname of the appdomain
+//
+// _bstr_t GetFriendlyName ( );
+func (obj *AppDomain) GetFriendlyName() (string, error) {
+	debugPrint("Entering into AppDomain.GetFriendlyName()...")
+	var bstrFriendlyname unsafe.Pointer
+	err := NewHResultChecker("AppDomain::GetFriendlyName").CheckHResultSyscallError(
+		syscall.SyscallN(
+			obj.vtbl.GetFriendlyName,
+			uintptr(unsafe.Pointer(obj)),
+			uintptr(unsafe.Pointer(&bstrFriendlyname)),
+		),
+	)
+	if err != nil {
+		return "", err
+	}
+	return ReadUnicodeStr(unsafe.Pointer(bstrFriendlyname)), nil
+}
+
+// GetBaseDirectory returns the base directory of the appdomain
+//
+// _bstr_t GetBaseDirectory ( );
+func (obj *AppDomain) GetBaseDirectory() (string, error) {
+	debugPrint("Entering into AppDomain.GetBaseDirectory()...")
+	var bstrGetBaseDirectory unsafe.Pointer
+	err := NewHResultChecker("AppDomain::GetBaseDirectory").CheckHResultSyscallError(
+		syscall.SyscallN(
+			obj.vtbl.GetBaseDirectory,
+			uintptr(unsafe.Pointer(obj)),
+			uintptr(unsafe.Pointer(&bstrGetBaseDirectory)),
+		),
+	)
+	if err != nil {
+		return "", err
+	}
+	return ReadUnicodeStr(unsafe.Pointer(bstrGetBaseDirectory)), nil
+}
+
+// GetRelativeSearchPath returns the relative search path of the appdomain
+//
+// _bstr_t GetRelativeSearchPath ( );
+func (obj *AppDomain) GetRelativeSearchPath() (string, error) {
+	debugPrint("Entering into AppDomain.GetRelativeSearchPath()...")
+	var bstrRelativeSearchPath unsafe.Pointer
+	err := NewHResultChecker("AppDomain::GetRelativeSearchPath").CheckHResultSyscallError(
+		syscall.SyscallN(
+			obj.vtbl.GetRelativeSearchPath,
+			uintptr(unsafe.Pointer(obj)),
+			uintptr(unsafe.Pointer(&bstrRelativeSearchPath)),
+		),
+	)
+	if err != nil {
+		return "", err
+	}
+	return ReadUnicodeStr(unsafe.Pointer(bstrRelativeSearchPath)), nil
+}
+
+// SAFEARRAY * GetAssemblies ( );
+func (obj *AppDomain) GetAssemblies() ([]*Assembly, error) {
 	debugPrint("Entering into appdomain.GetAssemblies()...")
 	var safeArray *SafeArray
-	hr, _, err := syscall.SyscallN(
-		obj.vtbl.GetAssemblies,
-		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(&safeArray)))
-	if err != syscall.Errno(0) {
-		err = fmt.Errorf("the AppDomain.GetAssemblies method retured an error:\r\n%s", err)
-		return
-	}
-	if hr != S_OK {
-		err = fmt.Errorf("the AppDomain.GetAssemblies method returned a non-zero HRESULT: 0x%x", hr)
-		return
+	err := NewHResultChecker("AppDomain::GetAssemblies").CheckHResultSyscallError(
+		syscall.SyscallN(
+			obj.vtbl.GetAssemblies,
+			uintptr(unsafe.Pointer(obj)),
+			uintptr(unsafe.Pointer(&safeArray)),
+		),
+	)
+	if err != nil {
+		return []*Assembly{}, err
 	}
 	return safeArrayToAssemblies(safeArray)
+}
+
+// HRESULT AppendPrivatePath (
+//
+//	_bstr_t Path );
+func (obj *AppDomain) AppendPrivatePath(path string) error {
+	debugPrint("Entering into AppDomain.AppendPrivatePath()...")
+	pathPtr, err := SysAllocString(path)
+	if err != nil {
+		return fmt.Errorf("the AppDomain::AppendPrivatePath SysAllocString returned error: %v", err)
+	}
+	err = NewHResultChecker("AppDomain::AppendPrivatePath").CheckHResultSyscallError(
+		syscall.SyscallN(
+			obj.vtbl.CreateInstance,
+			uintptr(unsafe.Pointer(obj)),
+			uintptr(pathPtr),
+		),
+	)
+	errFree := SysFreeString(pathPtr)
+	if errFree != nil {
+		return fmt.Errorf("the AppDomain::AppendPrivatePath error free String:\r\n%v", errFree)
+	}
+	return err
+}
+
+// HRESULT ClearPrivatePath ( );
+func (obj *AppDomain) ClearPrivatePath() error {
+	debugPrint("Entering into AppDomain.ClearPrivatePath()...")
+	return NewHResultChecker("AppDomain::ClearPrivatePath").CheckHResultSyscallError(
+		syscall.SyscallN(
+			obj.vtbl.CreateInstance,
+			uintptr(unsafe.Pointer(obj)),
+		),
+	)
 }
 
 func safeArrayToAssemblies(safeArray *SafeArray) ([]*Assembly, error) {

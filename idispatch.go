@@ -25,49 +25,40 @@ type IDispatchVtbl struct {
 func (obj *IDispatch) QueryInterface(riid windows.GUID) (unsafe.Pointer, error) {
 	debugPrint("Entering into IDispatch.QueryInterface()...")
 	var ppvObject unsafe.Pointer
-	hr, _, err := syscall.SyscallN(
+	err := NewHResultChecker("IDispatch::QueryInterface").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.QueryInterface,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&riid)),
 		uintptr(unsafe.Pointer(ppvObject)),
-	)
-	if err != syscall.Errno(0) {
-		return nil, fmt.Errorf("the IDispatch::QueryInterface method returned an error:\r\n%s", err)
-	}
-	if hr != S_OK {
-		return nil, fmt.Errorf("the IDispatch::QueryInterface method method returned a non-zero HRESULT: 0x%x", hr)
+	))
+	if err != nil {
+		return nil, err
 	}
 	return ppvObject, nil
 }
 
-func (obj *IDispatch) AddRef() error {
+func (obj *IDispatch) AddRef() (uint32, error) {
 	debugPrint("Entering into IDispatch.AddRef()...")
-	hr, _, err := syscall.SyscallN(
+	ret, _, err := syscall.SyscallN(
 		obj.vtbl.AddRef,
 		uintptr(unsafe.Pointer(obj)),
 	)
 	if err != syscall.Errno(0) {
-		return fmt.Errorf("the IDispatch::AddRef method returned an error:\r\n%s", err)
+		return 0, fmt.Errorf("the IDispatch::AddRef method returned an error:\r\n%s", err)
 	}
-	if hr != S_OK {
-		return fmt.Errorf("the IDispatch::AddRef method method returned a non-zero HRESULT: 0x%x", hr)
-	}
-	return nil
+	return *(*uint32)(unsafe.Pointer(*((**uintptr)(unsafe.Pointer(&ret))))), nil
 }
 
-func (obj *IDispatch) Release() error {
+func (obj *IDispatch) Release() (uint32, error) {
 	debugPrint("Entering into IDispatch.Release()...")
-	hr, _, err := syscall.SyscallN(
+	ret, _, err := syscall.SyscallN(
 		obj.vtbl.Release,
 		uintptr(unsafe.Pointer(obj)),
 	)
 	if err != syscall.Errno(0) {
-		return fmt.Errorf("the IDispatch::Release method returned an error:\r\n%s", err)
+		return 0, fmt.Errorf("the IDispatch::Release method returned an error:\r\n%s", err)
 	}
-	if hr != S_OK {
-		return fmt.Errorf("the IDispatch::Release method method returned a non-zero HRESULT: 0x%x", hr)
-	}
-	return nil
+	return *(*uint32)(unsafe.Pointer(*((**uintptr)(unsafe.Pointer(&ret))))), nil
 }
 
 func (obj *IDispatch) GetIDsOfName(names []string) ([]int32, error) {
@@ -77,20 +68,19 @@ func (obj *IDispatch) GetIDsOfName(names []string) ([]int32, error) {
 	}
 	dispid := make([]int32, len(names))
 	namelen := uint32(len(names))
-	hr, _, err := syscall.SyscallN(
-		obj.vtbl.GetIDsOfNames,
-		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(&IID_NULL)),
-		uintptr(unsafe.Pointer(&wnames[0])),
-		uintptr(namelen),
-		uintptr(GetUserDefaultLCID()),
-		uintptr(unsafe.Pointer(&dispid[0])),
+	err := NewHResultChecker("IDispatch::GetIDsOfName").CheckHResultSyscallError(
+		syscall.SyscallN(
+			obj.vtbl.GetIDsOfNames,
+			uintptr(unsafe.Pointer(obj)),
+			uintptr(unsafe.Pointer(&IID_NULL)),
+			uintptr(unsafe.Pointer(&wnames[0])),
+			uintptr(namelen),
+			uintptr(GetUserDefaultLCID()),
+			uintptr(unsafe.Pointer(&dispid[0])),
+		),
 	)
-	if err != syscall.Errno(0) {
-		return nil, fmt.Errorf("the IDispatch::GetIDsOfName method returned an error:\r\n%s", err)
-	}
-	if hr != S_OK {
-		return nil, fmt.Errorf("the IDispatch::GetIDsOfName method method returned a non-zero HRESULT: 0x%x", hr)
+	if err != nil {
+		return []int32{}, err
 	}
 	return dispid, nil
 }

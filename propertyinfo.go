@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
 // from mscorlib.tlh
@@ -52,36 +54,83 @@ type PropertyInfoVtbl struct {
 	get_IsSpecialName     uintptr
 }
 
+func (obj *PropertyInfo) QueryInterface(riid windows.GUID) (unsafe.Pointer, error) {
+	debugPrint("Entering into PropertyInfo.QueryInterface()...")
+	var ppvObject unsafe.Pointer
+	err := NewHResultChecker("PropertyInfo::QueryInterface").CheckHResultSyscallError(syscall.SyscallN(
+		obj.vtbl.QueryInterface,
+		uintptr(unsafe.Pointer(obj)),
+		uintptr(unsafe.Pointer(&riid)),
+		uintptr(unsafe.Pointer(ppvObject)),
+	))
+	if err != nil {
+		return nil, err
+	}
+	return ppvObject, nil
+}
+
+func (obj *PropertyInfo) AddRef() (uint32, error) {
+	debugPrint("Entering into PropertyInfo.AddRef()...")
+	ret, _, err := syscall.SyscallN(
+		obj.vtbl.AddRef,
+		uintptr(unsafe.Pointer(obj)),
+	)
+	if err != syscall.Errno(0) {
+		return 0, fmt.Errorf("the PropertyInfo::AddRef method returned an error:\r\n%s", err)
+	}
+	return *(*uint32)(unsafe.Pointer(*((**uintptr)(unsafe.Pointer(&ret))))), nil
+}
+
+func (obj *PropertyInfo) Release() (uint32, error) {
+	debugPrint("Entering into PropertyInfo.Release()...")
+	ret, _, err := syscall.SyscallN(
+		obj.vtbl.Release,
+		uintptr(unsafe.Pointer(obj)),
+	)
+	if err != syscall.Errno(0) {
+		return 0, fmt.Errorf("the PropertyInfo::Release method returned an error:\r\n%s", err)
+	}
+	return *(*uint32)(unsafe.Pointer(*((**uintptr)(unsafe.Pointer(&ret))))), nil
+}
+
 func (obj *PropertyInfo) ToString() (string, error) {
 	debugPrint("Entering into PropertyInfo.ToString()...")
 	var object *string
-	hr, _, err := syscall.SyscallN(
-		obj.vtbl.ToString,
-		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(&object)),
+	err := NewHResultChecker("PropertyInfo::QueryInterface").CheckHResultSyscallError(
+		syscall.SyscallN(
+			obj.vtbl.ToString,
+			uintptr(unsafe.Pointer(obj)),
+			uintptr(unsafe.Pointer(&object)),
+		),
 	)
-	if err != syscall.Errno(0) {
-		return "", fmt.Errorf("the PropertyInfo::ToString method returned an error:\r\n%s", err)
-	}
-	if hr != S_OK {
-		return "", fmt.Errorf("the PropertyInfo::ToString method returned a non-zero HRESULT: 0x%x", hr)
+	if err != nil {
+		return "", err
 	}
 	return ReadUnicodeStr(unsafe.Pointer(object)), nil
 }
 
-func (obj *PropertyInfo) GetValue(instance unsafe.Pointer, index *SafeArray) (*Variant, error) {
+// virtual HRESULT __stdcall GetValue (
+//
+//	/*[in]*/ VARIANT obj,
+//	/*[in]*/ SAFEARRAY * index,
+//	/*[out,retval]*/ VARIANT * pRetVal ) = 0;
+func (obj *PropertyInfo) GetValue(instance Variant, index *SafeArray) (*Variant, error) {
 	debugPrint("Entering into PropertyInfo.GetValue()...")
 	var retVar *Variant
+	var indexPtr uintptr
 	removeArray := false
 	if index == nil {
-		index, _ = SafeArrayCreateVector(VT_EMPTY, 0, 0)
-		removeArray = true
+		//index, _ = SafeArrayCreateVector(VT_EMPTY, 0, 0)
+		indexPtr = uintptr(0)
+		//removeArray = true
+	} else {
+		indexPtr = uintptr(unsafe.Pointer(index))
 	}
 	hr, _, err := syscall.SyscallN(
 		obj.vtbl.GetValue,
 		uintptr(unsafe.Pointer(obj)),
-		uintptr(instance),
-		uintptr(unsafe.Pointer(index)),
+		uintptr(*(*uintptr)(unsafe.Pointer(&instance))),
+		indexPtr,
 		uintptr(unsafe.Pointer(&retVar)),
 	)
 	if removeArray {

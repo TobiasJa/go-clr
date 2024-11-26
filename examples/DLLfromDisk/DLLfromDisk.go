@@ -31,7 +31,7 @@ func main() {
 	pwzVersion, err := syscall.UTF16PtrFromString(versionString)
 	must(err)
 
-	runtimeInfo, err := metahost.GetRuntime(pwzVersion, clr.IID_ICLRRuntimeInfo)
+	runtimeInfo, err := metahost.GetRuntime(pwzVersion)
 	must(err)
 	fmt.Printf("[+] Using runtime: %s\n", versionString)
 

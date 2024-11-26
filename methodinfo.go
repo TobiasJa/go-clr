@@ -67,37 +67,43 @@ type MethodInfoVtbl struct {
 	GetBaseDefinition              uintptr
 }
 
-func (obj *MethodInfo) QueryInterface(riid windows.GUID, ppvObject unsafe.Pointer) error {
-	debugPrint("Entering into methodinfo.QueryInterface()...")
-	hr, _, err := syscall.SyscallN(
+func (obj *MethodInfo) QueryInterface(riid windows.GUID) (unsafe.Pointer, error) {
+	debugPrint("Entering into MethodInfo.QueryInterface()...")
+	var ppvObject unsafe.Pointer
+	err := NewHResultChecker("MethodInfo::QueryInterface").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.QueryInterface,
 		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(&riid)), // A reference to the interface identifier (IID) of the interface being queried for.
-		uintptr(ppvObject),
-	)
-	if err != syscall.Errno(0) {
-		return fmt.Errorf("the IUknown::QueryInterface method returned an error:\r\n%s", err)
+		uintptr(unsafe.Pointer(&riid)),
+		uintptr(unsafe.Pointer(ppvObject)),
+	))
+	if err != nil {
+		return nil, err
 	}
-	if hr != S_OK {
-		return fmt.Errorf("the IUknown::QueryInterface method method returned a non-zero HRESULT: 0x%x", hr)
-	}
-	return nil
+	return ppvObject, nil
 }
 
-func (obj *MethodInfo) AddRef() uintptr {
-	ret, _, _ := syscall.SyscallN(
+func (obj *MethodInfo) AddRef() (uint32, error) {
+	debugPrint("Entering into MethodInfo.AddRef()...")
+	ret, _, err := syscall.SyscallN(
 		obj.vtbl.AddRef,
 		uintptr(unsafe.Pointer(obj)),
 	)
-	return ret
+	if err != syscall.Errno(0) {
+		return 0, fmt.Errorf("the MethodInfo::AddRef method returned an error:\r\n%s", err)
+	}
+	return *(*uint32)(unsafe.Pointer(*((**uintptr)(unsafe.Pointer(&ret))))), nil
 }
 
-func (obj *MethodInfo) Release() uintptr {
-	ret, _, _ := syscall.SyscallN(
+func (obj *MethodInfo) Release() (uint32, error) {
+	debugPrint("Entering into MethodInfo.Release()...")
+	ret, _, err := syscall.SyscallN(
 		obj.vtbl.Release,
 		uintptr(unsafe.Pointer(obj)),
 	)
-	return ret
+	if err != syscall.Errno(0) {
+		return 0, fmt.Errorf("the MethodInfo::Release method returned an error:\r\n%s", err)
+	}
+	return *(*uint32)(unsafe.Pointer(*((**uintptr)(unsafe.Pointer(&ret))))), nil
 }
 
 // Invoke_3 Invokes the method or constructor reflected by this MethodInfo instance.
@@ -108,7 +114,7 @@ func (obj *MethodInfo) Release() uintptr {
 //	/*[out,retval]*/ VARIANT * pRetVal ) = 0;
 //
 // https://docs.microsoft.com/en-us/dotnet/api/system.reflection.methodbase.invoke?view=net-5.0
-func (obj *MethodInfo) Invoke_3(variantObj Variant, parameters *SafeArray) (err error) {
+func (obj *MethodInfo) Invoke_3(variantObj Variant, parameters *SafeArray) error {
 	debugPrint("Entering into MethodInfo.Invoke_3()...")
 	var pRetVal *Variant
 	hr, _, err := syscall.SyscallN(
@@ -119,60 +125,49 @@ func (obj *MethodInfo) Invoke_3(variantObj Variant, parameters *SafeArray) (err 
 		uintptr(unsafe.Pointer(pRetVal)),
 	)
 	if err != syscall.Errno(0) {
-		err = fmt.Errorf("the MethodInfo::Invoke_3 method returned an error:\r\n%s", err)
-		return
+		return fmt.Errorf("the MethodInfo::Invoke_3 method returned an error:\r\n%s", err)
 	}
 
 	// If the HRESULT is a TargetInvocationException, attempt to get the inner error
 	// This currentl doesn't work
 	if uint32(hr) == COR_E_TARGETINVOCATION {
-		var iSupportErrorInfo *ISupportErrorInfo
 		// See if MethodInfo supports the ISupportErrorInfo interface
-		err = obj.QueryInterface(IID_ISupportErrorInfo, unsafe.Pointer(&iSupportErrorInfo))
-		if err != nil {
-			err = fmt.Errorf("the MethodInfo::QueryInterface method returned an error when looking for the ISupportErrorInfo interface:\r\n%s", err)
-			return
+		iSupportErrorInfoPtr, errQueryInterface := obj.QueryInterface(IID_ISupportErrorInfo)
+		if errQueryInterface != nil {
+			return fmt.Errorf("the MethodInfo::QueryInterface method returned an error when looking for the ISupportErrorInfo interface:\r\n%s", errQueryInterface)
 		}
+		iSupportErrorInfo := (*ISupportErrorInfo)(unsafe.Pointer(*(**uintptr)(unsafe.Pointer(&iSupportErrorInfoPtr))))
 
 		// See if the ICorRuntimeHost interface supports the IErrorInfo interface
 		// Not sure if there is an Interface ID for MethodInfo
-		err = iSupportErrorInfo.InterfaceSupportsErrorInfo(IID_ICorRuntimeHost)
+		err := iSupportErrorInfo.InterfaceSupportsErrorInfo(IID_ICorRuntimeHost)
 		if err != nil {
-			err = fmt.Errorf("there was an error with the ISupportErrorInfo::InterfaceSupportsErrorInfo method:\r\n%s", err)
-			return
+			return fmt.Errorf("there was an error with the ISupportErrorInfo::InterfaceSupportsErrorInfo method:\r\n%s", err)
 		}
 
 		// Get the IErrorInfo object
 		iErrorInfo, errG := GetErrorInfo()
 		if errG != nil {
-			err = fmt.Errorf("there was an error getting the IErrorInfo object:\r\n%s", errG)
-			return err
+			return fmt.Errorf("there was an error getting the IErrorInfo object:\r\n%s", errG)
 		}
 
 		// Read the IErrorInfo description
 		desc, errD := iErrorInfo.GetDescription()
 		if errD != nil {
-			err = fmt.Errorf("the IErrorInfo::GetDescription method returned an error:\r\n%s", errD)
-			return err
+			return fmt.Errorf("the IErrorInfo::GetDescription method returned an error:\r\n%s", errD)
 		}
 		if desc == nil {
-			err = fmt.Errorf("the MethodInfo::Invoke_3 method returned a non-zero HRESULT: 0x%x", hr)
-			return
+			return fmt.Errorf("the MethodInfo::Invoke_3 method returned a non-zero HRESULT: 0x%x", hr)
 		}
-		err = fmt.Errorf("the MethodInfo::Invoke_3 method returned a non-zero HRESULT: 0x%x with an IErrorInfo description of: %s", hr, *desc)
-		return
+		return fmt.Errorf("the MethodInfo::Invoke_3 method returned a non-zero HRESULT: 0x%x with an IErrorInfo description of: %s", hr, *desc)
 	}
 	if hr != S_OK {
-		err = fmt.Errorf("the MethodInfo::Invoke_3 method returned a non-zero HRESULT: 0x%x", hr)
-		return
+		return fmt.Errorf("the MethodInfo::Invoke_3 method returned a non-zero HRESULT: 0x%x", hr)
 	}
-
 	if pRetVal != nil {
-		err = fmt.Errorf("the MethodInfo::Invoke_3 method returned a non-zero pRetVal: %+v", pRetVal)
-		return
+		return fmt.Errorf("the MethodInfo::Invoke_3 method returned a non-zero pRetVal: %+v", pRetVal)
 	}
-	err = nil
-	return
+	return nil
 }
 
 // ToString returns a string that represents the current object
@@ -182,16 +177,15 @@ func (obj *MethodInfo) Invoke_3(variantObj Variant, parameters *SafeArray) (err 
 func (obj *MethodInfo) ToString() (string, error) {
 	debugPrint("Entering into MethodInfo.ToString()...")
 	var object *string
-	hr, _, err := syscall.SyscallN(
-		obj.vtbl.get_ToString,
-		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(&object)),
+	err := NewHResultChecker("MethodInfo::QueryInterface").CheckHResultSyscallError(
+		syscall.SyscallN(
+			obj.vtbl.get_ToString,
+			uintptr(unsafe.Pointer(obj)),
+			uintptr(unsafe.Pointer(&object)),
+		),
 	)
-	if err != syscall.Errno(0) {
-		return "", fmt.Errorf("the MethodInfo::ToString method returned an error:\r\n%s", err)
-	}
-	if hr != S_OK {
-		return "", fmt.Errorf("the MethodInfo::ToString method returned a non-zero HRESULT: 0x%x", hr)
+	if err != nil {
+		return "", err
 	}
 	return ReadUnicodeStr(unsafe.Pointer(object)), nil
 }

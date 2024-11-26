@@ -41,58 +41,50 @@ type ISupportErrorInfoVtbl struct {
 //
 // );
 // https://docs.microsoft.com/en-us/windows/win32/api/unknwn/nf-unknwn-iunknown-queryinterface(refiid_void)
-func (obj *ISupportErrorInfo) QueryInterface(riid windows.GUID, ppvObject unsafe.Pointer) error {
-	debugPrint("Entering into iunknown.QueryInterface()...")
-	hr, _, err := syscall.SyscallN(
+func (obj *ISupportErrorInfo) QueryInterface(riid windows.GUID) (unsafe.Pointer, error) {
+	debugPrint("Entering into ISupportErrorInfo.QueryInterface()...")
+	var ppvObject unsafe.Pointer
+	err := NewHResultChecker("ISupportErrorInfo::QueryInterface").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.QueryInterface,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&riid)), // A reference to the interface identifier (IID) of the interface being queried for.
-		uintptr(ppvObject),
-	)
-	if err != syscall.Errno(0) {
-		return fmt.Errorf("the IUknown::QueryInterface method returned an error:\r\n%s", err)
+		uintptr(unsafe.Pointer(&ppvObject)),
+	))
+	if err != nil {
+		return nil, err
 	}
-	if hr != S_OK {
-		return fmt.Errorf("the IUknown::QueryInterface method method returned a non-zero HRESULT: 0x%x", hr)
-	}
-	return nil
+	return ppvObject, nil
 }
 
 // AddRef Increments the reference count for an interface pointer to a COM object.
 // You should call this method whenever you make a copy of an interface pointer
 // ULONG AddRef();
 // https://docs.microsoft.com/en-us/windows/win32/api/unknwn/nf-unknwn-iunknown-addref
-func (obj *ISupportErrorInfo) AddRef() (count uint32, err error) {
-	debugPrint("Entering into iunknown.AddRef()...")
+func (obj *ISupportErrorInfo) AddRef() (uint32, error) {
+	debugPrint("Entering into ISupportErrorInfo.AddRef()...")
 	ret, _, err := syscall.SyscallN(
 		obj.vtbl.AddRef,
 		uintptr(unsafe.Pointer(obj)),
 	)
 	if err != syscall.Errno(0) {
-		return 0, fmt.Errorf("the IUnknown::AddRef method returned an error:\r\n%s", err)
+		return 0, fmt.Errorf("the ISupportErrorInfo::AddRef method returned an error:\r\n%s", err)
 	}
-	err = nil
-	// Unable to avoid misuse of unsafe.Pointer because the Windows API call returns the safeArray pointer in the "ret" value. This is a go vet false positive
-	count = *(*uint32)(unsafe.Pointer(ret))
-	return
+	return *(*uint32)(unsafe.Pointer(*((**uintptr)(unsafe.Pointer(&ret))))), nil
 }
 
 // Release Decrements the reference count for an interface on a COM object.
 // ULONG Release();
 // https://docs.microsoft.com/en-us/windows/win32/api/unknwn/nf-unknwn-iunknown-release
-func (obj *ISupportErrorInfo) Release() (count uint32, err error) {
-	debugPrint("Entering into iunknown.Release()...")
+func (obj *ISupportErrorInfo) Release() (uint32, error) {
+	debugPrint("Entering into ISupportErrorInfo.Release()...")
 	ret, _, err := syscall.SyscallN(
 		obj.vtbl.Release,
 		uintptr(unsafe.Pointer(obj)),
 	)
 	if err != syscall.Errno(0) {
-		return 0, fmt.Errorf("the IUnknown::Release method returned an error:\r\n%s", err)
+		return 0, fmt.Errorf("the ISupportErrorInfo::Release method returned an error:\r\n%s", err)
 	}
-	err = nil
-	// Unable to avoid misuse of unsafe.Pointer because the Windows API call returns the safeArray pointer in the "ret" value. This is a go vet false positive
-	count = *(*uint32)(unsafe.Pointer(ret))
-	return
+	return *(*uint32)(unsafe.Pointer(*((**uintptr)(unsafe.Pointer(&ret))))), nil
 }
 
 // InterfaceSupportsErrorInfo

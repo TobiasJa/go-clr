@@ -57,7 +57,6 @@ type SafeArrayBound struct {
 
 func SafeArrayCreateBytesWithSize(size uint32) (*SafeArray, error) {
 	debugPrint("Entering into safearray.SafeArrayCreateWithSize()...")
-
 	safeArrayBounds := SafeArrayBound{
 		cElements: size,
 		lLbound:   int32(0),
@@ -68,7 +67,7 @@ func SafeArrayCreateBytesWithSize(size uint32) (*SafeArray, error) {
 func SafeArrayCopyBytes(safeArray *SafeArray, rawBytes []byte) error {
 	chunkSize := 4096
 	lenBytes := len(rawBytes)
-	destPtr := uintptr(unsafe.Pointer(safeArray.pvData))
+	destPtr := safeArray.pvData
 	sourcePtr := uintptr(unsafe.Pointer(&rawBytes[0]))
 	var err error
 	for {
@@ -100,16 +99,13 @@ func CreateSafeArray(rawBytes []byte) (*SafeArray, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = SafeArrayLock(safeArray)
-	if err != nil {
+	if err := SafeArrayLock(safeArray); err != nil {
 		return nil, err
 	}
-	err = SafeArrayCopyBytes(safeArray, rawBytes)
-	if err != nil {
+	if err := SafeArrayCopyBytes(safeArray, rawBytes); err != nil {
 		return nil, err
 	}
-	err = SafeArrayUnlock(safeArray)
-	if err != nil {
+	if err := SafeArrayUnlock(safeArray); err != nil {
 		return nil, err
 	}
 	return safeArray, nil
@@ -126,15 +122,14 @@ func CreateSafeArray(rawBytes []byte) (*SafeArray, error) {
 func SafeArrayAccessData(psa *SafeArray) (*uintptr, error) {
 	debugPrint("Entering into safearray.SafeArrayAccessData()...")
 	var ppvData *uintptr
-	hr, _, err := modOleAut.MustFindProc("SafeArrayAccessData").Call(
-		uintptr(unsafe.Pointer(psa)),
-		uintptr(unsafe.Pointer(&ppvData)),
+	err := NewHResultChecker("oleaut32!SafeArrayAccessData").CheckHResultError(
+		modOleAut.MustFindProc("SafeArrayAccessData").Call(
+			uintptr(unsafe.Pointer(psa)),
+			uintptr(unsafe.Pointer(&ppvData)),
+		),
 	)
-	if err != syscall.Errno(0) {
+	if err != nil {
 		return nil, err
-	}
-	if hr != S_OK {
-		return nil, fmt.Errorf("the oleaut32!SafeArrayAccessData function returned a non-zero HRESULT: 0x%x", hr)
 	}
 	return ppvData, nil
 }
@@ -149,16 +144,11 @@ func SafeArrayAccessData(psa *SafeArray) (*uintptr, error) {
 // https://learn.microsoft.com/en-us/windows/win32/api/oleauto/nf-oleauto-safearrayallocdata
 func SafeArrayAllocData(psa *SafeArray) error {
 	debugPrint("Entering into safearray.SafeArrayAllocData()...")
-	_, _, err := modOleAut.MustFindProc("SafeArrayAllocData").Call(
-		uintptr(unsafe.Pointer(psa)),
+	return NewHResultChecker("oleaut32!SafeArrayAllocData").CheckHResultError(
+		modOleAut.MustFindProc("SafeArrayAllocData").Call(
+			uintptr(unsafe.Pointer(psa)),
+		),
 	)
-	if err != syscall.Errno(0) {
-		return err
-	}
-	// if hr != S_OK {
-	// 	return fmt.Errorf("the safearray.SafeArrayAllocData() function return 0x%x", hr)
-	// }
-	return nil
 }
 
 // safeArrayAllocDescriptor allocates SafeArray.
@@ -173,15 +163,14 @@ func SafeArrayAllocData(psa *SafeArray) error {
 func SafeArrayAllocDescriptor(cDims uint32) (*SafeArray, error) {
 	debugPrint("Entering into safearray.SafeArrayAllocDescriptor()...")
 	var safeArray *SafeArray
-	hr, _, err := modOleAut.MustFindProc("SafeArrayAllocDescriptor").Call(
-		uintptr(cDims),
-		uintptr(unsafe.Pointer(&safeArray)),
+	err := NewHResultChecker("oleaut32!SafeArrayAllocDescriptorEx").CheckHResultError(
+		modOleAut.MustFindProc("SafeArrayAllocDescriptorEx").Call(
+			uintptr(cDims),
+			uintptr(unsafe.Pointer(&safeArray)),
+		),
 	)
-	if err != syscall.Errno(0) {
+	if err != nil {
 		return nil, err
-	}
-	if hr != S_OK {
-		return nil, fmt.Errorf("the safearray.SafeArrayAllocData() function return 0x%x", hr)
 	}
 	return safeArray, nil
 }
@@ -199,16 +188,15 @@ func SafeArrayAllocDescriptor(cDims uint32) (*SafeArray, error) {
 func SafeArrayAllocDescriptorEx(vt VT, cDims uint32) (*SafeArray, error) {
 	debugPrint("Entering into safearray.SafeArrayAllocDescriptorEx()...")
 	var ppsaOut *SafeArray
-	hr, _, err := modOleAut.MustFindProc("SafeArrayAllocDescriptorEx").Call(
-		uintptr(vt),
-		uintptr(cDims),
-		uintptr(unsafe.Pointer(&ppsaOut)),
+	err := NewHResultChecker("oleaut32!SafeArrayAllocDescriptorEx").CheckHResultError(
+		modOleAut.MustFindProc("SafeArrayAllocDescriptorEx").Call(
+			uintptr(vt),
+			uintptr(cDims),
+			uintptr(unsafe.Pointer(&ppsaOut)),
+		),
 	)
-	if err != syscall.Errno(0) {
+	if err != nil {
 		return nil, err
-	}
-	if hr != S_OK {
-		return nil, fmt.Errorf("the safearray.SafeArrayAllocDescriptorEx() function return 0x%x", hr)
 	}
 	return ppsaOut, nil
 }
@@ -225,15 +213,12 @@ func SafeArrayAllocDescriptorEx(vt VT, cDims uint32) (*SafeArray, error) {
 func SafeArrayCopy(psa *SafeArray) (*SafeArray, error) {
 	debugPrint("Entering into safearray.SafeArrayCopy()...")
 	var ppsaOut *SafeArray
-	hr, _, err := modOleAut.MustFindProc("SafeArrayCopy").Call(
+	err := NewHResultChecker("oleaut32!SafeArrayCopy").CheckHResultError(modOleAut.MustFindProc("SafeArrayCopy").Call(
 		uintptr(unsafe.Pointer(psa)),
 		uintptr(unsafe.Pointer(&ppsaOut)),
-	)
-	if err != syscall.Errno(0) {
+	))
+	if err != nil {
 		return nil, err
-	}
-	if hr != S_OK {
-		return nil, fmt.Errorf("the safearray.SafeArrayCopy() function return 0x%x", hr)
 	}
 	return ppsaOut, nil
 }
@@ -247,19 +232,12 @@ func SafeArrayCopy(psa *SafeArray) (*SafeArray, error) {
 //
 // );
 // https://learn.microsoft.com/en-us/windows/win32/api/oleauto/nf-oleauto-safearraycopydata
-func SafeArrayCopyData(psaSource *SafeArray, psaTarget *SafeArray) (err error) {
+func SafeArrayCopyData(psaSource *SafeArray, psaTarget *SafeArray) error {
 	debugPrint("Entering into safearray.safeArrayCopyData()...")
-	hr, _, err := modOleAut.MustFindProc("safeArrayCopyData").Call(
+	return NewHResultChecker("oleaut32!SafeArrayCopyData").CheckHResultError(modOleAut.MustFindProc("safeArrayCopyData").Call(
 		uintptr(unsafe.Pointer(psaSource)),
 		uintptr(unsafe.Pointer(psaTarget)),
-	)
-	if err != syscall.Errno(0) {
-		return err
-	}
-	if hr != S_OK {
-		return fmt.Errorf("the safearray.SafeArrayCopyData() function return 0x%x", hr)
-	}
-	return nil
+	))
 }
 
 // SafeArrayCreate creates a new array descriptor, allocates and initializes the data for the array, and returns a pointer to the new array descriptor.
@@ -282,7 +260,7 @@ func SafeArrayCreate(vt VT, cDims uint32, rgsabound *SafeArrayBound) (*SafeArray
 	if err != syscall.Errno(0) {
 		return nil, err
 	}
-	return (*SafeArray)(unsafe.Pointer(ret)), nil
+	return (*SafeArray)(unsafe.Pointer(*(**uintptr)(unsafe.Pointer(&ret)))), nil
 }
 
 // SafeArrayCreateEx creates a new array descriptor, allocates and initializes the data for the array, and returns a pointer to the new array descriptor.
@@ -308,7 +286,7 @@ func SafeArrayCreateEx(vt VT, cDims uint32, rgsabound *SafeArrayBound, pvExtra u
 	if ret != S_OK {
 		return nil, fmt.Errorf("the safearray.SafeArrayCreateEx() function return 0x%x and the SafeArray was not created", ret)
 	}
-	return (*SafeArray)(unsafe.Pointer(ret)), nil
+	return (*SafeArray)(unsafe.Pointer(*(**uintptr)(unsafe.Pointer(&ret)))), nil
 }
 
 // SafeArrayCreateVector creates SafeArray.
@@ -329,7 +307,7 @@ func SafeArrayCreateVector(vt VT, lLbound int32, cElements uint32) (*SafeArray, 
 	if err != syscall.Errno(0) {
 		return nil, err
 	}
-	return (*SafeArray)(unsafe.Pointer(ret)), nil
+	return (*SafeArray)(unsafe.Pointer(*(**uintptr)(unsafe.Pointer(&ret)))), nil
 }
 
 // safeArrayCreateVectorEx creates SafeArray.
@@ -355,7 +333,7 @@ func SafeArrayCreateVectorEx(vt VT, lLbound int32, cElements uint32, pvExtra uin
 	if ret != S_OK {
 		return nil, fmt.Errorf("the safearray.SafeArrayCreateVectorEx() function return 0x%x and the SafeArray was not created", ret)
 	}
-	return (*SafeArray)(unsafe.Pointer(ret)), nil
+	return (*SafeArray)(unsafe.Pointer(*(**uintptr)(unsafe.Pointer(&ret)))), nil
 }
 
 // SafeArrayDestroy Destroys an existing array descriptor and all of the data in the array.
@@ -389,16 +367,9 @@ func SafeArrayDestroy(psa *SafeArray) error {
 // https://learn.microsoft.com/en-us/windows/win32/api/oleauto/nf-oleauto-safearraydestroydata
 func SafeArrayDestroyData(psa *SafeArray) error {
 	debugPrint("Entering into safearray.SafeArrayDestroyData()...")
-	hr, _, err := modOleAut.MustFindProc("SafeArrayDestroyData").Call(
+	return NewHResultChecker("oleaut32!SafeArrayDestroyData").CheckHResultError(modOleAut.MustFindProc("SafeArrayDestroyData").Call(
 		uintptr(unsafe.Pointer(psa)),
-	)
-	if err != syscall.Errno(0) {
-		return fmt.Errorf("the oleaut32!SafeArrayDestroyData function call returned an error:\n%s", err)
-	}
-	if hr != S_OK {
-		return fmt.Errorf("the oleaut32!SafeArrayDestroyData function returned a non-zero HRESULT: 0x%x", hr)
-	}
-	return nil
+	))
 }
 
 // SafeArrayDestroyDescriptor Destroys an existing array descriptor and all of the data in the array.
@@ -411,16 +382,9 @@ func SafeArrayDestroyData(psa *SafeArray) error {
 // https://learn.microsoft.com/en-us/windows/win32/api/oleauto/nf-oleauto-safearraydestroydescriptor
 func SafeArrayDestroyDescriptor(psa *SafeArray) error {
 	debugPrint("Entering into safearray.SafeArrayDestroyDescriptor()...")
-	hr, _, err := modOleAut.MustFindProc("SafeArrayDestroyDescriptor").Call(
+	return NewHResultChecker("oleaut32!SafeArrayDestroyDescriptor").CheckHResultError(modOleAut.MustFindProc("SafeArrayDestroyDescriptor").Call(
 		uintptr(unsafe.Pointer(psa)),
-	)
-	if err != syscall.Errno(0) {
-		return fmt.Errorf("the oleaut32!SafeArrayDestroyDescriptor function call returned an error:\n%s", err)
-	}
-	if hr != S_OK {
-		return fmt.Errorf("the oleaut32!SafeArrayDestroyDescriptor function returned a non-zero HRESULT: 0x%x", hr)
-	}
-	return nil
+	))
 }
 
 // SafeArrayGetDim returns the dimensions of a safearray
@@ -450,16 +414,13 @@ func SafeArrayGetDim(psa *SafeArray) (*uint32, error) {
 func SafeArrayGetElement(psa *SafeArray, rgIndices uint32) (unsafe.Pointer, error) {
 	debugPrint("Entering into safearray.SafeArrayGetElement()...")
 	var pv unsafe.Pointer
-	hr, _, err := modOleAut.MustFindProc("SafeArrayGetElement").Call(
+	err := NewHResultChecker("oleaut32!SafeArrayGetElement").CheckHResultError(modOleAut.MustFindProc("SafeArrayGetElement").Call(
 		uintptr(unsafe.Pointer(psa)),
 		uintptr(unsafe.Pointer(&rgIndices)),
 		uintptr(unsafe.Pointer(&pv)),
-	)
-	if err != syscall.Errno(0) {
-		return nil, fmt.Errorf("the oleaut32!SafeArrayGetElement function call returned an error:\n%s", err)
-	}
-	if hr != S_OK {
-		return nil, fmt.Errorf("the oleaut32!SafeArrayGetElement function returned a non-zero HRESULT: 0x%x", hr)
+	))
+	if err != nil {
+		return nil, err
 	}
 	return pv, nil
 }
@@ -501,15 +462,12 @@ func SafeArrayGetElemsize(psa *SafeArray) (*uint32, error) {
 func SafeArrayGetIID(safearray *SafeArray) (*windows.GUID, error) {
 	debugPrint("Entering into safearray.SafeArrayGetIID()...")
 	var guid *windows.GUID
-	hr, _, err := modOleAut.MustFindProc("SafeArrayGetIID").Call(
+	err := NewHResultChecker("oleaut32!SafeArrayGetIID").CheckHResultError(modOleAut.MustFindProc("SafeArrayGetIID").Call(
 		uintptr(unsafe.Pointer(safearray)),
 		uintptr(unsafe.Pointer(&guid)),
-	)
-	if err != syscall.Errno(0) {
-		return nil, fmt.Errorf("the oleaut32!SafeArrayGetIID function call returned an error:\n%s", err)
-	}
-	if hr != S_OK {
-		return nil, fmt.Errorf("the oleaut32!SafeArrayGetIID function returned a non-zero HRESULT: 0x%x", hr)
+	))
+	if err != nil {
+		return nil, err
 	}
 	return guid, nil
 }
@@ -526,16 +484,13 @@ func SafeArrayGetIID(safearray *SafeArray) (*windows.GUID, error) {
 func SafeArrayGetLBound(psa *SafeArray, nDim uint32) (uint32, error) {
 	debugPrint("Entering into safearray.SafeArrayGetLBound()...")
 	var plLbound uint32
-	hr, _, err := modOleAut.MustFindProc("SafeArrayGetLBound").Call(
+	err := NewHResultChecker("oleaut32!SafeArrayGetLBound").CheckHResultError(modOleAut.MustFindProc("SafeArrayGetLBound").Call(
 		uintptr(unsafe.Pointer(psa)),
 		uintptr(nDim),
 		uintptr(unsafe.Pointer(&plLbound)),
-	)
-	if err != syscall.Errno(0) {
+	))
+	if err != nil {
 		return 0, err
-	}
-	if hr != S_OK {
-		return 0, fmt.Errorf("the oleaut32!SafeArrayGetLBound function returned a non-zero HRESULT: 0x%x", hr)
 	}
 	return plLbound, nil
 }
@@ -552,15 +507,12 @@ func SafeArrayGetLBound(psa *SafeArray, nDim uint32) (uint32, error) {
 func SafeArrayGetRecordInfo(psa *SafeArray) (interface{}, error) {
 	debugPrint("Entering into safearray.SafeArrayGetRecordInfo()...")
 	var prinfo interface{}
-	hr, _, err := modOleAut.MustFindProc("SafeArrayGetRecordInfo").Call(
+	err := NewHResultChecker("oleaut32!SafeArrayGetRecordInfo").CheckHResultError(modOleAut.MustFindProc("SafeArrayGetRecordInfo").Call(
 		uintptr(unsafe.Pointer(psa)),
 		uintptr(unsafe.Pointer(&prinfo)),
-	)
-	if err != syscall.Errno(0) {
+	))
+	if err != nil {
 		return 0, err
-	}
-	if hr != S_OK {
-		return 0, fmt.Errorf("the oleaut32!SafeArrayGetRecordInfo function returned a non-zero HRESULT: 0x%x", hr)
 	}
 	return prinfo, nil
 }
@@ -577,16 +529,13 @@ func SafeArrayGetRecordInfo(psa *SafeArray) (interface{}, error) {
 func SafeArrayGetUBound(psa *SafeArray, nDim uint32) (uint32, error) {
 	debugPrint("Entering into safearray.SafeArrayGetUBound()...")
 	var plUbound uint32
-	hr, _, err := modOleAut.MustFindProc("SafeArrayGetUBound").Call(
+	err := NewHResultChecker("oleaut32!SafeArrayGetUBound").CheckHResultError(modOleAut.MustFindProc("SafeArrayGetUBound").Call(
 		uintptr(unsafe.Pointer(psa)),
 		uintptr(nDim),
 		uintptr(unsafe.Pointer(&plUbound)),
-	)
-	if err != syscall.Errno(0) {
+	))
+	if err != nil {
 		return 0, err
-	}
-	if hr != S_OK {
-		return 0, fmt.Errorf("the oleaut32!SafeArrayGetUBound function returned a non-zero HRESULT: 0x%x", hr)
 	}
 	return plUbound, nil
 }
@@ -602,15 +551,12 @@ func SafeArrayGetUBound(psa *SafeArray, nDim uint32) (uint32, error) {
 func SafeArrayGetVartype(psa *SafeArray) (uint16, error) {
 	debugPrint("Entering into safearray.SafeArrayGetVartype()...")
 	var vt uint16
-	hr, _, err := modOleAut.MustFindProc("SafeArrayGetVartype").Call(
+	err := NewHResultChecker("oleaut32!SafeArrayGetVartype").CheckHResultError(modOleAut.MustFindProc("SafeArrayGetVartype").Call(
 		uintptr(unsafe.Pointer(psa)),
 		uintptr(unsafe.Pointer(&vt)),
-	)
-	if err != syscall.Errno(0) {
+	))
+	if err != nil {
 		return 0, err
-	}
-	if hr != S_OK {
-		return 0, fmt.Errorf("the OleAut32!SafeArrayGetVartype function returned a non-zero HRESULT: 0x%x", hr)
 	}
 	return vt, nil
 }
@@ -624,14 +570,7 @@ func SafeArrayGetVartype(psa *SafeArray) (uint16, error) {
 // https://docs.microsoft.com/en-us/windows/win32/api/oleauto/nf-oleauto-safearraylock
 func SafeArrayLock(psa *SafeArray) error {
 	debugPrint("Entering into safearray.SafeArrayLock()...")
-	hr, _, err := modOleAut.MustFindProc("SafeArrayLock").Call(uintptr(unsafe.Pointer(psa)))
-	if err != syscall.Errno(0) {
-		return err
-	}
-	if hr != S_OK {
-		return fmt.Errorf("the OleAut32!SafeArrayLock function returned a non-zero HRESULT: 0x%x", hr)
-	}
-	return nil
+	return NewHResultChecker("oleaut32!SafeArrayLock").CheckHResultError(modOleAut.MustFindProc("SafeArrayLock").Call(uintptr(unsafe.Pointer(psa))))
 }
 
 // SafeArrayPutElement pushes an element to the safe array at a given index
@@ -645,18 +584,11 @@ func SafeArrayLock(psa *SafeArray) error {
 // https://docs.microsoft.com/en-us/windows/win32/api/oleauto/nf-oleauto-safearrayputelement
 func SafeArrayPutElement(psa *SafeArray, rgIndices int32, pv unsafe.Pointer) error {
 	debugPrint("Entering into safearray.SafeArrayPutElement()...")
-	hr, _, err := modOleAut.MustFindProc("SafeArrayPutElement").Call(
+	return NewHResultChecker("oleaut32!SafeArrayPutElement").CheckHResultError(modOleAut.MustFindProc("SafeArrayPutElement").Call(
 		uintptr(unsafe.Pointer(psa)),
 		uintptr(unsafe.Pointer(&rgIndices)),
 		uintptr(pv),
-	)
-	if err != syscall.Errno(0) {
-		return err
-	}
-	if hr != S_OK {
-		return fmt.Errorf("the OleAut32!SafeArrayPutElement call returned a non-zero HRESULT: 0x%x", hr)
-	}
-	return nil
+	))
 }
 
 // SafeArraySetRecordInfo mutates IRecordInfo info for custom types.
@@ -670,17 +602,10 @@ func SafeArrayPutElement(psa *SafeArray, rgIndices int32, pv unsafe.Pointer) err
 // https://learn.microsoft.com/en-us/windows/win32/api/oleauto/nf-oleauto-safearraysetrecordinfo
 func SafeArraySetRecordInfo(psa *SafeArray, prinfo interface{}) error {
 	debugPrint("Entering into safearray.SafeArraySetRecordInfo()...")
-	hr, _, err := modOleAut.MustFindProc("SafeArraySetRecordInfo").Call(
+	return NewHResultChecker("oleaut32!SafeArraySetRecordInfo").CheckHResultError(modOleAut.MustFindProc("SafeArraySetRecordInfo").Call(
 		uintptr(unsafe.Pointer(psa)),
 		uintptr(unsafe.Pointer(&prinfo)),
-	)
-	if err != syscall.Errno(0) {
-		return err
-	}
-	if hr != S_OK {
-		return fmt.Errorf("the OleAut32!SafeArraySetRecordInfo call returned a non-zero HRESULT: 0x%x", hr)
-	}
-	return nil
+	))
 }
 
 // SafeArrayUnaccessData releases raw array.
@@ -693,16 +618,9 @@ func SafeArraySetRecordInfo(psa *SafeArray, prinfo interface{}) error {
 // https://learn.microsoft.com/en-us/windows/win32/api/oleauto/nf-oleauto-safearrayunaccessdata
 func SafeArrayUnaccessData(psa *SafeArray) error {
 	debugPrint("Entering into safearray.SafeArrayUnaccessData()...")
-	hr, _, err := modOleAut.MustFindProc("SafeArrayUnaccessData").Call(
+	return NewHResultChecker("oleaut32!SafeArrayUnaccessData").CheckHResultError(modOleAut.MustFindProc("SafeArrayUnaccessData").Call(
 		uintptr(unsafe.Pointer(psa)),
-	)
-	if err != syscall.Errno(0) {
-		return err
-	}
-	if hr != S_OK {
-		return fmt.Errorf("the OleAut32!SafeArrayUnaccessData call returned a non-zero HRESULT: 0x%x", hr)
-	}
-	return nil
+	))
 }
 
 // SafeArrayUnloack releases raw array.
@@ -715,16 +633,9 @@ func SafeArrayUnaccessData(psa *SafeArray) error {
 // https://learn.microsoft.com/en-us/windows/win32/api/oleauto/nf-oleauto-safearrayunlock
 func SafeArrayUnlock(psa *SafeArray) error {
 	debugPrint("Entering into safearray.SafeArrayUnlock()...")
-	hr, _, err := modOleAut.MustFindProc("SafeArrayUnlock").Call(
+	return NewHResultChecker("oleaut32!SafeArrayUnlock").CheckHResultError(modOleAut.MustFindProc("SafeArrayUnlock").Call(
 		uintptr(unsafe.Pointer(psa)),
-	)
-	if err != syscall.Errno(0) {
-		return err
-	}
-	if hr != S_OK {
-		return fmt.Errorf("the OleAut32!SafeArrayUnlock call returned a non-zero HRESULT: 0x%x", hr)
-	}
-	return nil
+	))
 }
 
 func SafeArrayGetArrayLength(safeArray *SafeArray) (uint32, error) {

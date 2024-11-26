@@ -72,7 +72,7 @@ func ExecuteDLLFromDisk(targetRuntime, dllpath, typeName, methodName, argument s
 			latestRuntime = r
 		}
 	}
-	runtimeInfo, err := GetRuntimeInfo(metahost, latestRuntime)
+	runtimeInfo, err := GetICLRRuntimeInfo(metahost, latestRuntime)
 	if err != nil {
 		return
 	}
@@ -147,7 +147,7 @@ func ExecuteByteArray(targetRuntime string, rawBytes []byte, params []string) (r
 			latestRuntime = r
 		}
 	}
-	runtimeInfo, err := GetRuntimeInfo(metahost, latestRuntime)
+	runtimeInfo, err := GetICLRRuntimeInfo(metahost, latestRuntime)
 	if err != nil {
 		return
 	}
@@ -236,7 +236,7 @@ func LoadCLR(targetRuntime string) (runtimeHost *ICORRuntimeHost, err error) {
 			latestRuntime = r
 		}
 	}
-	runtimeInfo, err := GetRuntimeInfo(metahost, latestRuntime)
+	runtimeInfo, err := GetICLRRuntimeInfo(metahost, latestRuntime)
 	if err != nil {
 		return
 	}

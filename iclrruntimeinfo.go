@@ -58,29 +58,51 @@ type ICLRRuntimeInfoVtbl struct {
 }
 
 // GetRuntimeInfo is a wrapper function to return an ICLRRuntimeInfo from a standard version string
-func GetRuntimeInfo(metahost *ICLRMetaHost, version string) (*ICLRRuntimeInfo, error) {
+func GetICLRRuntimeInfo(metahost *ICLRMetaHost, version string) (*ICLRRuntimeInfo, error) {
 	pwzVersion, err := syscall.UTF16PtrFromString(version)
 	if err != nil {
 		return nil, err
 	}
-	return metahost.GetRuntime(pwzVersion, IID_ICLRRuntimeInfo)
+	return metahost.GetRuntime(pwzVersion)
 }
 
-func (obj *ICLRRuntimeInfo) AddRef() uintptr {
-	ret, _, _ := syscall.SyscallN(
+func (obj *ICLRRuntimeInfo) QueryInterface(riid windows.GUID) (unsafe.Pointer, error) {
+	debugPrint("Entering into ICLRRuntimeInfo.QueryInterface()...")
+	var ppvObject unsafe.Pointer
+	err := NewHResultChecker("ICLRRuntimeInfo::QueryInterface").CheckHResultSyscallError(syscall.SyscallN(
+		obj.vtbl.QueryInterface,
+		uintptr(unsafe.Pointer(obj)),
+		uintptr(unsafe.Pointer(&riid)), // A reference to the interface identifier (IID) of the interface being queried for.
+		uintptr(unsafe.Pointer(&ppvObject)),
+	))
+	if err != nil {
+		return nil, err
+	}
+	return ppvObject, nil
+}
+
+func (obj *ICLRRuntimeInfo) AddRef() (uint32, error) {
+	debugPrint("Entering into ICLRRuntimeInfo.AddRef()...")
+	ret, _, err := syscall.SyscallN(
 		obj.vtbl.AddRef,
 		uintptr(unsafe.Pointer(obj)),
 	)
-	return ret
+	if err != syscall.Errno(0) {
+		return 0, fmt.Errorf("the ICLRRuntimeInfo::AddRef method returned an error:\r\n%s", err)
+	}
+	return *(*uint32)(unsafe.Pointer(*((**uintptr)(unsafe.Pointer(&ret))))), nil
 }
 
-func (obj *ICLRRuntimeInfo) Release() uintptr {
-	debugPrint("Entering into iclrruntimeinfo.Release()...")
-	ret, _, _ := syscall.SyscallN(
+func (obj *ICLRRuntimeInfo) Release() (uint32, error) {
+	debugPrint("Entering into ICLRRuntimeInfo.Release()...")
+	ret, _, err := syscall.SyscallN(
 		obj.vtbl.Release,
 		uintptr(unsafe.Pointer(obj)),
 	)
-	return ret
+	if err != syscall.Errno(0) {
+		return 0, fmt.Errorf("the ICLRRuntimeInfo::Release method returned an error:\r\n%s", err)
+	}
+	return *(*uint32)(unsafe.Pointer(*((**uintptr)(unsafe.Pointer(&ret))))), nil
 }
 
 // GetVersionString gets common language runtime (CLR) version information associated with a given ICLRRuntimeInfo interface.
@@ -90,45 +112,38 @@ func (obj *ICLRRuntimeInfo) Release() uintptr {
 //	[in, out]  DWORD *pcchBuffer);
 //
 // https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrruntimeinfo-getversionstring-method
-func (obj *ICLRRuntimeInfo) GetVersionString() (version string, err error) {
-	debugPrint("Entering into iclrruntimeinfo.GetVersion()...")
+func (obj *ICLRRuntimeInfo) GetVersionString() (string, error) {
+	debugPrint("Entering into ICLRRuntimeInfo.GetVersion()...")
 	// [in, out] Specifies the size of pwzBuffer to avoid buffer overruns. If pwzBuffer is null, pchBuffer returns the required size of pwzBuffer to allow preallocation.
 	var pchBuffer uint32
-	hr, _, err := syscall.SyscallN(
+	hr, _, errSysCall := syscall.SyscallN(
 		obj.vtbl.GetVersionString,
 		uintptr(unsafe.Pointer(obj)),
 		0,
 		uintptr(unsafe.Pointer(&pchBuffer)),
 	)
-	if err != syscall.Errno(0) {
-		err = fmt.Errorf("there was an error calling the ICLRRuntimeInfo::GetVersionString method during preallocation:\r\n%s", err)
-		return
+	if errSysCall != syscall.Errno(0) {
+		return "", fmt.Errorf("there was an error calling the ICLRRuntimeInfo::GetVersionString method during preallocation:\r\n%s", errSysCall)
 	}
 	// 0x8007007a = The data area passed to a system call is too small, expected when passing a nil buffer for preallocation
 	if hr != S_OK && hr != 0x8007007a {
-		err = fmt.Errorf("the ICLRRuntimeInfo::GetVersionString method (preallocation) returned a non-zero HRESULT: 0x%x", hr)
-		return
+		return "", fmt.Errorf("the ICLRRuntimeInfo::GetVersionString method (preallocation) returned a non-zero HRESULT: 0x%x", hr)
 	}
 
 	pwzBuffer := make([]uint16, 20)
 
-	hr, _, err = syscall.SyscallN(
-		obj.vtbl.GetVersionString,
-		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(&pwzBuffer[0])),
-		uintptr(unsafe.Pointer(&pchBuffer)),
+	err := NewHResultChecker("ICLRRuntimeInfo::GetVersionString").CheckHResultSyscallError(
+		syscall.SyscallN(
+			obj.vtbl.GetVersionString,
+			uintptr(unsafe.Pointer(obj)),
+			uintptr(unsafe.Pointer(&pwzBuffer[0])),
+			uintptr(unsafe.Pointer(&pchBuffer)),
+		),
 	)
-	if err != syscall.Errno(0) {
-		err = fmt.Errorf("there was an error calling the ICLRRuntimeInfo::GetVersionString method:\r\n%s", err)
-		return
+	if err != nil {
+		return "", err
 	}
-	if hr != S_OK {
-		err = fmt.Errorf("the ICLRRuntimeInfo::GetVersionString method returned a non-zero HRESULT: 0x%x", hr)
-		return
-	}
-	err = nil
-	version = syscall.UTF16ToString(pwzBuffer)
-	return
+	return syscall.UTF16ToString(pwzBuffer), nil
 }
 
 // GetInterface loads the CLR into the current process and returns runtime interface pointers,
@@ -183,17 +198,12 @@ func (obj *ICLRRuntimeInfo) GetInterface(rclsid windows.GUID, riid windows.GUID)
 // https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrruntimeinfo-bindaslegacyv2runtime-method
 func (obj *ICLRRuntimeInfo) BindAsLegacyV2Runtime() error {
 	debugPrint("Entering into iclrruntimeinfo.BindAsLegacyV2Runtime()...")
-	hr, _, err := syscall.SyscallN(
-		obj.vtbl.BindAsLegacyV2Runtime,
-		uintptr(unsafe.Pointer(obj)),
+	return NewHResultChecker("ICLRRuntimeInfo::BindAsLegacyV2Runtime").CheckHResultSyscallError(
+		syscall.SyscallN(
+			obj.vtbl.BindAsLegacyV2Runtime,
+			uintptr(unsafe.Pointer(obj)),
+		),
 	)
-	if err != syscall.Errno(0) {
-		return fmt.Errorf("the ICLRRuntimeInfo::BindAsLegacyV2Runtime method returned an error:\r\n%s", err)
-	}
-	if hr != S_OK {
-		return fmt.Errorf("the ICLRRuntimeInfo::BindAsLegacyV2Runtime method returned a non-zero HRESULT: 0x%x", hr)
-	}
-	return nil
 }
 
 // IsLoadable indicates whether the runtime associated with this interface can be loaded into the current process,
@@ -203,21 +213,18 @@ func (obj *ICLRRuntimeInfo) BindAsLegacyV2Runtime() error {
 //	[out, retval] BOOL *pbLoadable);
 //
 // https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrruntimeinfo-isloadable-method
-func (obj *ICLRRuntimeInfo) IsLoadable() (pbLoadable bool, err error) {
+func (obj *ICLRRuntimeInfo) IsLoadable() (bool, error) {
 	debugPrint("Entering into iclrruntimeinfo.IsLoadable()...")
-	hr, _, err := syscall.SyscallN(
-		obj.vtbl.IsLoadable,
-		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(&pbLoadable)),
+	var pbLoadable bool
+	err := NewHResultChecker("ICLRRuntimeInfo::IsLoadable").CheckHResultSyscallError(
+		syscall.SyscallN(
+			obj.vtbl.IsLoadable,
+			uintptr(unsafe.Pointer(obj)),
+			uintptr(unsafe.Pointer(&pbLoadable)),
+		),
 	)
-	if err != syscall.Errno(0) {
-		err = fmt.Errorf("the ICLRRuntimeInfo::IsLoadable method returned an error:\r\n%s", err)
-		return
+	if err != nil {
+		return pbLoadable, err
 	}
-	if hr != S_OK {
-		err = fmt.Errorf("the ICLRRuntimeInfo::IsLoadable method  returned a non-zero HRESULT: 0x%x", hr)
-		return
-	}
-	err = nil
-	return
+	return pbLoadable, nil
 }

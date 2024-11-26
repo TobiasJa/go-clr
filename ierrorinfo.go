@@ -39,31 +39,65 @@ type IErrorInfoVtbl struct {
 	GetSource uintptr
 }
 
+func (obj *IErrorInfo) QueryInterface(riid windows.GUID) (unsafe.Pointer, error) {
+	debugPrint("Entering into IErrorInfo.QueryInterface()...")
+	var ppvObject unsafe.Pointer
+	err := NewHResultChecker("IErrorInfo::QueryInterface").CheckHResultSyscallError(syscall.SyscallN(
+		obj.vtbl.QueryInterface,
+		uintptr(unsafe.Pointer(obj)),
+		uintptr(unsafe.Pointer(&riid)),
+		uintptr(unsafe.Pointer(ppvObject)),
+	))
+	if err != nil {
+		return nil, err
+	}
+	return ppvObject, nil
+}
+
+func (obj *IErrorInfo) AddRef() (uint32, error) {
+	debugPrint("Entering into IErrorInfo.AddRef()...")
+	ret, _, err := syscall.SyscallN(
+		obj.vtbl.AddRef,
+		uintptr(unsafe.Pointer(obj)),
+	)
+	if err != syscall.Errno(0) {
+		return 0, fmt.Errorf("the IErrorInfo::AddRef method returned an error:\r\n%s", err)
+	}
+	return *(*uint32)(unsafe.Pointer(*((**uintptr)(unsafe.Pointer(&ret))))), nil
+}
+
+func (obj *IErrorInfo) Release() (uint32, error) {
+	debugPrint("Entering into IErrorInfo.Release()...")
+	ret, _, err := syscall.SyscallN(
+		obj.vtbl.Release,
+		uintptr(unsafe.Pointer(obj)),
+	)
+	if err != syscall.Errno(0) {
+		return 0, fmt.Errorf("the IErrorInfo::Release method returned an error:\r\n%s", err)
+	}
+	return *(*uint32)(unsafe.Pointer(*((**uintptr)(unsafe.Pointer(&ret))))), nil
+}
+
 // GetDescription Returns a text description of the error.
 // HRESULT GetDescription (
 //
 //	BSTR *pbstrDescription);
 //
 // https://docs.microsoft.com/en-us/previous-versions/windows/desktop/ms714318(v=vs.85)
-func (obj *IErrorInfo) GetDescription() (pbstrDescription *string, err error) {
-	debugPrint("Entering into ierrorinfo.GetDescription()...")
-
-	hr, _, err := syscall.SyscallN(
-		obj.vtbl.GetDescription,
-		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(&pbstrDescription)),
+func (obj *IErrorInfo) GetDescription() (*string, error) {
+	debugPrint("Entering into IErrorInfo.GetDescription()...")
+	var pbstrDescription *string
+	err := NewHResultChecker("IErrorInfo::QueryInterface").CheckHResultSyscallError(
+		syscall.SyscallN(
+			obj.vtbl.GetDescription,
+			uintptr(unsafe.Pointer(obj)),
+			uintptr(unsafe.Pointer(&pbstrDescription)),
+		),
 	)
-
-	if err != syscall.Errno(0) {
-		err = fmt.Errorf("the IErrorInfo::GetDescription method returned an error:\r\n%s", err)
-		return
+	if err != nil {
+		return nil, err
 	}
-	if hr != S_OK {
-		err = fmt.Errorf("the IErrorInfo::GetDescription method method returned a non-zero HRESULT: 0x%x", hr)
-		return
-	}
-	err = nil
-	return
+	return pbstrDescription, nil
 }
 
 // GetGUID Returns the globally unique identifier (GUID) of the interface that defined the error.
@@ -73,25 +107,20 @@ func (obj *IErrorInfo) GetDescription() (pbstrDescription *string, err error) {
 //
 // );
 // https://docs.microsoft.com/en-us/windows/win32/api/oaidl/nf-oaidl-ierrorinfo-getguid
-func (obj *IErrorInfo) GetGUID() (pGUID *windows.GUID, err error) {
+func (obj *IErrorInfo) GetGUID() (*windows.GUID, error) {
 	debugPrint("Entering into ierrorinfo.GetGUID()...")
-
-	hr, _, err := syscall.SyscallN(
-		obj.vtbl.GetGUID,
-		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(pGUID)),
+	var pGUID *windows.GUID
+	err := NewHResultChecker("IErrorInfo::QueryInterface").CheckHResultSyscallError(
+		syscall.SyscallN(
+			obj.vtbl.GetGUID,
+			uintptr(unsafe.Pointer(obj)),
+			uintptr(unsafe.Pointer(pGUID)),
+		),
 	)
-
-	if err != syscall.Errno(0) {
-		err = fmt.Errorf("the IErrorInfo::GetGUID method returned an error:\r\n%s", err)
-		return
+	if err != nil {
+		return nil, err
 	}
-	if hr != S_OK {
-		err = fmt.Errorf("the IErrorInfo::GetGUID method method returned a non-zero HRESULT: 0x%x", hr)
-		return
-	}
-	err = nil
-	return
+	return pGUID, nil
 }
 
 // GetErrorInfo Obtains the error information pointer set by the previous call to SetErrorInfo in the current logical thread.
@@ -102,19 +131,14 @@ func (obj *IErrorInfo) GetGUID() (pGUID *windows.GUID, err error) {
 //
 // );
 // https://docs.microsoft.com/en-us/windows/win32/api/oleauto/nf-oleauto-geterrorinfo
-func GetErrorInfo() (pperrinfo *IErrorInfo, err error) {
+func GetErrorInfo() (*IErrorInfo, error) {
 	debugPrint("Entering into ierrorinfo.GetErrorInfo()...")
-	modOleAut32 := syscall.MustLoadDLL("OleAut32.dll")
-	procGetErrorInfo := modOleAut32.MustFindProc("GetErrorInfo")
-	hr, _, err := procGetErrorInfo.Call(0, uintptr(unsafe.Pointer(&pperrinfo)))
-	if err != syscall.Errno(0) {
-		err = fmt.Errorf("the OleAu32.GetErrorInfo procedure call returned an error:\n%s", err)
-		return
+	var pperrinfo *IErrorInfo
+	err := NewHResultChecker("IErrorInfo::QueryInterface").CheckHResultError(
+		modOleAut.MustFindProc("GetErrorInfo").Call(0, uintptr(unsafe.Pointer(&pperrinfo))),
+	)
+	if err != nil {
+		return nil, err
 	}
-	if hr != S_OK {
-		err = fmt.Errorf("the OleAu32.GetErrorInfo procedure call returned a non-zero HRESULT code: 0x%x", hr)
-		return
-	}
-	err = nil
-	return
+	return pperrinfo, nil
 }

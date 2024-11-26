@@ -91,38 +91,43 @@ func CLRCreateInstance(clsid, riid windows.GUID) (ppInterface *ICLRMetaHost, err
 	return
 }
 
-func (obj *ICLRMetaHost) QueryInterface(riid windows.GUID, ppvObject unsafe.Pointer) error {
-	debugPrint("Entering into icorruntimehost.QueryInterface()...")
-	hr, _, err := syscall.SyscallN(
+func (obj *ICLRMetaHost) QueryInterface(riid windows.GUID) (unsafe.Pointer, error) {
+	debugPrint("Entering into ICLRMetaHost.QueryInterface()...")
+	var ppvObject unsafe.Pointer
+	err := NewHResultChecker("ICLRMetaHost::QueryInterface").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.QueryInterface,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&riid)), // A reference to the interface identifier (IID) of the interface being queried for.
-		uintptr(ppvObject),
-	)
-	if err != syscall.Errno(0) {
-		return fmt.Errorf("the IUknown::QueryInterface method returned an error:\r\n%s", err)
+		uintptr(unsafe.Pointer(&ppvObject)),
+	))
+	if err != nil {
+		return nil, err
 	}
-	if hr != S_OK {
-		return fmt.Errorf("the IUknown::QueryInterface method method returned a non-zero HRESULT: 0x%x", hr)
-	}
-	return nil
+	return ppvObject, nil
 }
 
-func (obj *ICLRMetaHost) AddRef() uintptr {
-	debugPrint("Entering into assembly.AddRef()...")
-	ret, _, _ := syscall.SyscallN(
+func (obj *ICLRMetaHost) AddRef() (uint32, error) {
+	debugPrint("Entering into ICLRMetaHost.AddRef()...")
+	ret, _, err := syscall.SyscallN(
 		obj.vtbl.AddRef,
 		uintptr(unsafe.Pointer(obj)),
 	)
-	return ret
+	if err != syscall.Errno(0) {
+		return 0, fmt.Errorf("the ICLRMetaHost::AddRef method returned an error:\r\n%s", err)
+	}
+	return *(*uint32)(unsafe.Pointer(*((**uintptr)(unsafe.Pointer(&ret))))), nil
 }
 
-func (obj *ICLRMetaHost) Release() uintptr {
-	ret, _, _ := syscall.SyscallN(
+func (obj *ICLRMetaHost) Release() (uint32, error) {
+	debugPrint("Entering into ICLRMetaHost.Release()...")
+	ret, _, err := syscall.SyscallN(
 		obj.vtbl.Release,
 		uintptr(unsafe.Pointer(obj)),
 	)
-	return ret
+	if err != syscall.Errno(0) {
+		return 0, fmt.Errorf("the ICLRMetaHost::Release method returned an error:\r\n%s", err)
+	}
+	return *(*uint32)(unsafe.Pointer(*((**uintptr)(unsafe.Pointer(&ret))))), nil
 }
 
 // EnumerateInstalledRuntimes returns an enumeration that contains a valid ICLRRuntimeInfo interface for each
@@ -132,23 +137,20 @@ func (obj *ICLRMetaHost) Release() uintptr {
 //	[out, retval] IEnumUnknown **ppEnumerator);
 //
 // https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrmetahost-enumerateinstalledruntimes-method
-func (obj *ICLRMetaHost) EnumerateInstalledRuntimes() (ppEnumerator *IEnumUnknown, err error) {
-	debugPrint("Entering into iclrmetahost.EnumerateInstalledRuntimes()...")
-	hr, _, err := syscall.SyscallN(
-		obj.vtbl.EnumerateInstalledRuntimes,
-		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(&ppEnumerator)),
+func (obj *ICLRMetaHost) EnumerateInstalledRuntimes() (*IEnumUnknown, error) {
+	debugPrint("Entering into ICLRMetaHost.EnumerateInstalledRuntimes()...")
+	var ppEnumerator *IEnumUnknown
+	err := NewHResultChecker("ICLRMetaHost::EnumerateInstalledRuntimes").CheckHResultSyscallError(
+		syscall.SyscallN(
+			obj.vtbl.EnumerateInstalledRuntimes,
+			uintptr(unsafe.Pointer(obj)),
+			uintptr(unsafe.Pointer(&ppEnumerator)),
+		),
 	)
-	if err != syscall.Errno(0) {
-		err = fmt.Errorf("there was an error calling the ICLRMetaHost::EnumerateInstalledRuntimes method:\r\n%s", err)
-		return
+	if err != nil {
+		return nil, err
 	}
-	if hr != S_OK {
-		err = fmt.Errorf("the ICLRMetaHost::EnumerateInstalledRuntimes method returned a non-zero HRESULT: 0x%x", hr)
-		return
-	}
-	err = nil
-	return
+	return ppEnumerator, nil
 }
 
 // GetRuntime gets the ICLRRuntimeInfo interface that corresponds to a particular version of the common language runtime (CLR).
@@ -161,25 +163,20 @@ func (obj *ICLRMetaHost) EnumerateInstalledRuntimes() (ppEnumerator *IEnumUnknow
 //
 // );
 // https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrmetahost-getruntime-method
-func (obj *ICLRMetaHost) GetRuntime(pwzVersion *uint16, riid windows.GUID) (ppRuntime *ICLRRuntimeInfo, err error) {
+func (obj *ICLRMetaHost) GetRuntime(pwzVersion *uint16) (*ICLRRuntimeInfo, error) {
 	debugPrint("Entering into iclrmetahost.GetRuntime()...")
-
-	hr, _, err := syscall.SyscallN(
-		obj.vtbl.GetRuntime,
-		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(pwzVersion)),
-		uintptr(unsafe.Pointer(&IID_ICLRRuntimeInfo)),
-		uintptr(unsafe.Pointer(&ppRuntime)),
+	var ppRuntime *ICLRRuntimeInfo
+	err := NewHResultChecker("ICLRMetaHost::EnumerateInstalledRuntimes").CheckHResultSyscallError(
+		syscall.SyscallN(
+			obj.vtbl.GetRuntime,
+			uintptr(unsafe.Pointer(obj)),
+			uintptr(unsafe.Pointer(pwzVersion)),
+			uintptr(unsafe.Pointer(&IID_ICLRRuntimeInfo)),
+			uintptr(unsafe.Pointer(&ppRuntime)),
+		),
 	)
-
-	if err != syscall.Errno(0) {
-		err = fmt.Errorf("there was an error calling the ICLRMetaHost::GetRuntime method:\r\n%s", err)
-		return
+	if err != nil {
+		return nil, err
 	}
-	if hr != S_OK {
-		err = fmt.Errorf("the ICLRMetaHost::GetRuntime method returned a non-zero HRESULT: 0x%x", hr)
-		return
-	}
-	err = nil
-	return
+	return ppRuntime, nil
 }

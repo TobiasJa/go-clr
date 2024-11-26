@@ -27,7 +27,7 @@ type AssemblyVtbl struct {
 	GetTypeInfo                 uintptr
 	GetIDsOfNames               uintptr
 	Invoke                      uintptr
-	get_ToString                uintptr
+	GetToString                 uintptr
 	Equals                      uintptr
 	GetHashCode                 uintptr
 	GetType                     uintptr
@@ -35,8 +35,8 @@ type AssemblyVtbl struct {
 	get_EscapedCodeBase         uintptr
 	GetName                     uintptr
 	GetName_2                   uintptr
-	get_FullName                uintptr
-	get_EntryPoint              uintptr
+	GetFullName                 uintptr
+	GetEntryPoint               uintptr
 	GetType_2                   uintptr
 	GetType_3                   uintptr
 	GetExportedTypes            uintptr
@@ -76,49 +76,51 @@ type AssemblyVtbl struct {
 func (obj *Assembly) QueryInterface(riid windows.GUID) (unsafe.Pointer, error) {
 	debugPrint("Entering into Assembly.QueryInterface()...")
 	var ppvObject unsafe.Pointer
-	hr, _, err := syscall.SyscallN(
+	err := NewHResultChecker("Assembly::QueryInterface").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.QueryInterface,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&riid)),
-		uintptr(ppvObject),
-	)
-	if err != syscall.Errno(0) {
-		return nil, fmt.Errorf("the Assembly::QueryInterface method returned an error:\r\n%s", err)
-	}
-	if hr != S_OK {
-		return nil, fmt.Errorf("the Assembly::QueryInterface method method returned a non-zero HRESULT: 0x%x", hr)
+		uintptr(unsafe.Pointer(ppvObject)),
+	))
+	if err != nil {
+		return nil, err
 	}
 	return ppvObject, nil
 }
 
 func (obj *Assembly) AddRef() error {
 	debugPrint("Entering into Assembly.AddRef()...")
-	hr, _, err := syscall.SyscallN(
+	return NewHResultChecker("Assembly::AddRef").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.AddRef,
 		uintptr(unsafe.Pointer(obj)),
-	)
-	if err != syscall.Errno(0) {
-		return fmt.Errorf("the Assembly::AddRef method returned an error:\r\n%s", err)
-	}
-	if hr != S_OK {
-		return fmt.Errorf("the Assembly::AddRef method method returned a non-zero HRESULT: 0x%x", hr)
-	}
-	return nil
+	))
 }
 
 func (obj *Assembly) Release() error {
 	debugPrint("Entering into Assembly.Release()...")
-	hr, _, err := syscall.SyscallN(
+	return NewHResultChecker("Assembly::Release").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.Release,
 		uintptr(unsafe.Pointer(obj)),
+	))
+}
+
+// ToString Obtains a string representation that includes the friendly name of the application domain and any context policies.
+// https://docs.microsoft.com/en-us/dotnet/api/system.assembly.tostring?view=net-5.0#System_AppDomain_ToString
+func (obj *Assembly) ToString() (string, error) {
+	debugPrint("Entering into Assembly.ToString()...")
+	var pDomain *string
+	err := NewHResultChecker("Assembly::GetToString").CheckHResultSyscallError(
+		syscall.SyscallN(
+			obj.vtbl.GetToString,
+			uintptr(unsafe.Pointer(obj)),
+			uintptr(unsafe.Pointer(&pDomain)),
+		),
 	)
-	if err != syscall.Errno(0) {
-		return fmt.Errorf("the Assembly::Release method returned an error:\r\n%s", err)
+
+	if err != nil {
+		return "", err
 	}
-	if hr != S_OK {
-		return fmt.Errorf("the Assembly::Release method method returned a non-zero HRESULT: 0x%x", hr)
-	}
-	return nil
+	return ReadUnicodeStr(unsafe.Pointer(pDomain)), nil
 }
 
 // GetEntryPoint returns the assembly's MethodInfo
@@ -128,40 +130,34 @@ func (obj *Assembly) Release() error {
 //
 // https://docs.microsoft.com/en-us/dotnet/api/system.reflection.assembly.entrypoint?view=netframework-4.8#System_Reflection_Assembly_EntryPoint
 // https://docs.microsoft.com/en-us/dotnet/api/system.reflection.methodinfo?view=netframework-4.8
-func (obj *Assembly) GetEntryPoint() (pRetVal *MethodInfo, err error) {
+func (obj *Assembly) GetEntryPoint() (*MethodInfo, error) {
 	debugPrint("Entering into Assembly.GetEntryPoint()...")
-	hr, _, err := syscall.SyscallN(
-		obj.vtbl.get_EntryPoint,
-		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(&pRetVal)),
+	var pRetVal *MethodInfo
+	err := NewHResultChecker("Assembly::GetEntryPoint").CheckHResultSyscallError(
+		syscall.SyscallN(
+			obj.vtbl.GetEntryPoint,
+			uintptr(unsafe.Pointer(obj)),
+			uintptr(unsafe.Pointer(&pRetVal)),
+		),
 	)
-	if err != syscall.Errno(0) {
-		err = fmt.Errorf("the Assembly::GetEntryPoint method returned an error:\r\n%s", err)
-		return
+	if err != nil {
+		return nil, err
 	}
-	if hr != S_OK {
-		err = fmt.Errorf("the Assembly::GetEntryPoint method returned a non-zero HRESULT: 0x%x", hr)
-		return
-	}
-	err = nil
-	return
+	return pRetVal, nil
 }
 
+// _bstr_t GetFullName ( );
 func (obj *Assembly) GetFullName() (string, error) {
 	debugPrint("Entering into Assembly.GetFullName()...")
-	var err error
 	var pRetValBSTR unsafe.Pointer
-	hr, _, err := syscall.SyscallN(
-		obj.vtbl.get_FullName,
-		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(&pRetValBSTR)),
+	err := NewHResultChecker("Assembly::GetFullName").CheckHResultSyscallError(
+		syscall.SyscallN(
+			obj.vtbl.GetFullName,
+			uintptr(unsafe.Pointer(obj)),
+			uintptr(unsafe.Pointer(&pRetValBSTR)),
+		),
 	)
-	if err != syscall.Errno(0) {
-		err = fmt.Errorf("the Assembly::GetFullName method returned an error:\r\n%s", err)
-		return "", err
-	}
-	if hr != S_OK {
-		err = fmt.Errorf("the Assembly::GetFullName method returned a non-zero HRESULT: 0x%x", hr)
+	if err != nil {
 		return "", err
 	}
 	return ReadUnicodeStr(pRetValBSTR), nil
@@ -193,69 +189,46 @@ func (obj *Assembly) CreateInstance(instance string) (unsafe.Pointer, error) {
 	return instanceObj, nil
 }
 
-func (obj *Assembly) GetType(typeStr string) (*Type, error) {
-	debugPrint("Entering into Assembly.GetType()...")
+func (obj *Assembly) GetType_2(typeStr string) (*Type, error) {
+	debugPrint("Entering into Assembly.GetType_2()...")
 	var typePtr *Type
 	typeStrPtr, err := SysAllocString(typeStr)
 	if err != nil {
-		return nil, fmt.Errorf("the Assembly::GetType SysAllocString returned error: %v", err)
+		return nil, fmt.Errorf("the Assembly::GetType_2 SysAllocString returned error: %v", err)
 	}
-	hr, _, err := syscall.SyscallN(
-		obj.vtbl.GetType_2,
-		uintptr(unsafe.Pointer(obj)),
-		uintptr(typeStrPtr),
-		uintptr(unsafe.Pointer(&typePtr)),
+	err = NewHResultChecker("Assembly::GetType_2").CheckHResultSyscallError(
+		syscall.SyscallN(
+			obj.vtbl.GetType_2,
+			uintptr(unsafe.Pointer(obj)),
+			uintptr(typeStrPtr),
+			uintptr(unsafe.Pointer(&typePtr)),
+		),
 	)
 	errFree := SysFreeString(typeStrPtr)
 	if errFree != nil {
-		return nil, fmt.Errorf("the Assembly::GetType error free String:\r\n%v", errFree)
+		return nil, fmt.Errorf("the Assembly::GetType_2 error free String:\r\n%v", errFree)
 	}
-	if err != syscall.Errno(0) {
-		return nil, fmt.Errorf("the Assembly::GetType method returned an error:\r\n%s", err)
-	}
-	if hr != S_OK {
-		return nil, fmt.Errorf("the Assembly::GetType method returned a non-zero HRESULT: 0x%x", hr)
+	if err != nil {
+		return nil, err
 	}
 	return typePtr, nil
 }
 
 func (obj *Assembly) GetTypes() ([]*Type, error) {
 	debugPrint("Entering into Assembly.GetTypes()...")
-	var err error
 	var safeArray *SafeArray
 	types := []*Type{}
-	hr, _, err := syscall.SyscallN(
-		obj.vtbl.GetTypes,
-		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(&safeArray)),
+	err := NewHResultChecker("Assembly::GetTypes").CheckHResultSyscallError(
+		syscall.SyscallN(
+			obj.vtbl.GetTypes,
+			uintptr(unsafe.Pointer(obj)),
+			uintptr(unsafe.Pointer(&safeArray)),
+		),
 	)
-	if err != syscall.Errno(0) {
-		return types, fmt.Errorf("the Assembly::GetTypes method returned an error:\r\n%s", err)
-	}
-	if hr != S_OK {
-		return types, fmt.Errorf("the Assembly::GetTypes method returned a non-zero HRESULT: 0x%x", hr)
+	if err != nil {
+		return types, err
 	}
 	return safeArrayToTypes(safeArray)
-}
-
-// ToString Obtains a string representation that includes the friendly name of the application domain and any context policies.
-// https://docs.microsoft.com/en-us/dotnet/api/system.assembly.tostring?view=net-5.0#System_AppDomain_ToString
-func (obj *Assembly) ToString() (string, error) {
-	debugPrint("Entering into Assembly.ToString()...")
-	var pDomain *string
-	hr, _, err := syscall.SyscallN(
-		obj.vtbl.get_ToString,
-		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(&pDomain)),
-	)
-
-	if err != syscall.Errno(0) {
-		return "", fmt.Errorf("the Assembly.ToString method retured an error:\r\n%s", err)
-	}
-	if hr != S_OK {
-		return "", fmt.Errorf("the Assembly.ToString method returned a non-zero HRESULT: 0x%x", hr)
-	}
-	return ReadUnicodeStr(unsafe.Pointer(pDomain)), nil
 }
 
 func safeArrayToTypes(safeArray *SafeArray) ([]*Type, error) {

@@ -36,7 +36,17 @@ func NewHResultChecker(method string) *HResultChecker {
 	}
 }
 
-func (h *HResultChecker) CheckHResultError(r1 uintptr, r2 uintptr, err syscall.Errno) error {
+func (h *HResultChecker) CheckHResultError(r1 uintptr, r2 uintptr, err error) error {
+	if err != syscall.Errno(0) {
+		return fmt.Errorf("the %s method returned an error:\n%s", h.Method, err)
+	}
+	if r1 != S_OK {
+		return fmt.Errorf("the %s method returned a non-zero HRESULT: 0x%x", h.Method, r1)
+	}
+	return nil
+}
+
+func (h *HResultChecker) CheckHResultSyscallError(r1 uintptr, r2 uintptr, err syscall.Errno) error {
 	if err != syscall.Errno(0) {
 		return fmt.Errorf("the %s method returned an error:\n%s", h.Method, err)
 	}

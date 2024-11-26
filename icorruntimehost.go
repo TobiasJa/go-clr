@@ -82,39 +82,43 @@ func GetICORRuntimeHost(runtimeInfo *ICLRRuntimeInfo) (*ICORRuntimeHost, error) 
 	return runtimeHost.(*ICORRuntimeHost), err
 }
 
-func (obj *ICORRuntimeHost) QueryInterface(riid windows.GUID, ppvObject unsafe.Pointer) error {
-	debugPrint("Entering into icorruntimehost.QueryInterface()...")
-	hr, _, err := syscall.SyscallN(
+func (obj *ICORRuntimeHost) QueryInterface(riid windows.GUID) (unsafe.Pointer, error) {
+	debugPrint("Entering into ICORRuntimeHost.QueryInterface()...")
+	var ppvObject unsafe.Pointer
+	err := NewHResultChecker("ICORRuntimeHost::QueryInterface").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.QueryInterface,
 		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(&riid)), // A reference to the interface identifier (IID) of the interface being queried for.
-		uintptr(ppvObject),
-	)
-	if err != syscall.Errno(0) {
-		fmt.Println("1111111111111")
-		return fmt.Errorf("the IUknown::QueryInterface method returned an error:\r\n%s", err)
+		uintptr(unsafe.Pointer(&riid)),
+		uintptr(unsafe.Pointer(ppvObject)),
+	))
+	if err != nil {
+		return nil, err
 	}
-	if hr != S_OK {
-		fmt.Println("222222222222222222")
-		return fmt.Errorf("the IUknown::QueryInterface method method returned a non-zero HRESULT: 0x%x", hr)
-	}
-	return nil
+	return ppvObject, nil
 }
 
-func (obj *ICORRuntimeHost) AddRef() uintptr {
-	ret, _, _ := syscall.SyscallN(
+func (obj *ICORRuntimeHost) AddRef() (uint32, error) {
+	debugPrint("Entering into ICORRuntimeHost.AddRef()...")
+	ret, _, err := syscall.SyscallN(
 		obj.vtbl.AddRef,
 		uintptr(unsafe.Pointer(obj)),
 	)
-	return ret
+	if err != syscall.Errno(0) {
+		return 0, fmt.Errorf("the ICORRuntimeHost::AddRef method returned an error:\r\n%s", err)
+	}
+	return *(*uint32)(unsafe.Pointer(*((**uintptr)(unsafe.Pointer(&ret))))), nil
 }
 
-func (obj *ICORRuntimeHost) Release() uintptr {
-	ret, _, _ := syscall.SyscallN(
+func (obj *ICORRuntimeHost) Release() (uint32, error) {
+	debugPrint("Entering into ICORRuntimeHost.Release()...")
+	ret, _, err := syscall.SyscallN(
 		obj.vtbl.Release,
 		uintptr(unsafe.Pointer(obj)),
 	)
-	return ret
+	if err != syscall.Errno(0) {
+		return 0, fmt.Errorf("the ICORRuntimeHost::Release method returned an error:\r\n%s", err)
+	}
+	return *(*uint32)(unsafe.Pointer(*((**uintptr)(unsafe.Pointer(&ret))))), nil
 }
 
 // Start starts the common language runtime (CLR).
@@ -146,11 +150,11 @@ func (obj *ICORRuntimeHost) Start() error {
 // https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/icorruntimehost-getdefaultdomain-method
 func (obj *ICORRuntimeHost) GetDefaultDomain() (*AppDomain, error) {
 	debugPrint("Entering into icorruntimehost.GetDefaultDomain()...")
-	var IUnknown *IUnknown
+	var iUnknown *IUnknown
 	hr, _, err := syscall.SyscallN(
 		obj.vtbl.GetDefaultDomain,
 		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(&IUnknown)),
+		uintptr(unsafe.Pointer(&iUnknown)),
 	)
 	if err != syscall.Errno(0) {
 		// The specified procedure could not be found.
@@ -160,12 +164,11 @@ func (obj *ICORRuntimeHost) GetDefaultDomain() (*AppDomain, error) {
 	if hr != S_OK {
 		return nil, fmt.Errorf("the ICORRuntimeHost::GetDefaultDomain method method returned a non-zero HRESULT: 0x%x", hr)
 	}
-	var appDomain *AppDomain
-	errQueryInterface := IUnknown.QueryInterface(IID_AppDomain, unsafe.Pointer(&appDomain))
+	appDomainPtr, errQueryInterface := iUnknown.QueryInterface(IID_AppDomain)
 	if errQueryInterface != nil {
 		return nil, errQueryInterface
 	}
-	return appDomain, nil
+	return (*AppDomain)(unsafe.Pointer(*(**uintptr)(unsafe.Pointer(&appDomainPtr)))), nil
 }
 
 // CreateDomain Creates an application domain. The caller receives an interface pointer of type _AppDomain to an instance of type System.AppDomain.
@@ -196,12 +199,11 @@ func (obj *ICORRuntimeHost) CreateDomain(FriendlyName string, pIdentityArray *IU
 	if hr != S_OK {
 		return nil, fmt.Errorf("the ICORRuntimeHost::CreateDomain method returned a non-zero HRESULT: 0x%x", hr)
 	}
-	var appDomain *AppDomain
-	errQueryInterface := iu.QueryInterface(IID_AppDomain, unsafe.Pointer(&appDomain))
+	appDomainPtr, errQueryInterface := iu.QueryInterface(IID_AppDomain)
 	if errQueryInterface != nil {
 		return nil, errQueryInterface
 	}
-	return appDomain, nil
+	return (*AppDomain)(unsafe.Pointer(*(**uintptr)(unsafe.Pointer(&appDomainPtr)))), nil
 }
 
 func (obj *ICORRuntimeHost) GetDomain(dName string) (pAppDomain *AppDomain, err error) {
@@ -237,7 +239,7 @@ func (obj *ICORRuntimeHost) GetDomain(dName string) (pAppDomain *AppDomain, err 
 func (obj *ICORRuntimeHost) EnumDomains() (windows.Handle, error) {
 	debugPrint("Entering into icorruntimehost.EnumDomains()...")
 	var hEnum windows.Handle
-	err := NewHResultChecker("ICORRuntimeHost.EnumDomains").CheckHResultError(syscall.SyscallN(
+	err := NewHResultChecker("ICORRuntimeHost.EnumDomains").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.EnumDomains,
 		(uintptr(unsafe.Pointer(&hEnum))),
 	))
@@ -247,7 +249,7 @@ func (obj *ICORRuntimeHost) EnumDomains() (windows.Handle, error) {
 func (obj *ICORRuntimeHost) NextDomain(hDomainEnum windows.Handle) (*AppDomain, error) {
 	debugPrint("Entering into icorruntimehost.NextDomain()...")
 	var iu *IUnknown
-	err := NewHResultChecker("ICORRuntimeHost.CloseEnum").CheckHResultError(syscall.SyscallN(
+	err := NewHResultChecker("ICORRuntimeHost.CloseEnum").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.NextDomain,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(hDomainEnum),
@@ -256,17 +258,16 @@ func (obj *ICORRuntimeHost) NextDomain(hDomainEnum windows.Handle) (*AppDomain, 
 	if err != nil {
 		return nil, err
 	}
-	var appDomain *AppDomain
-	err = iu.QueryInterface(IID_AppDomain, unsafe.Pointer(&appDomain))
+	appDomainPtr, err := iu.QueryInterface(IID_AppDomain)
 	if err != nil {
 		return nil, err
 	}
-	return appDomain, nil
+	return (*AppDomain)(unsafe.Pointer(*(**uintptr)(unsafe.Pointer(&appDomainPtr)))), nil
 }
 
 func (obj *ICORRuntimeHost) CloseEnum(hDomainEnum windows.Handle) error {
 	debugPrint("Entering into ICORRuntimeHost.CloseEnum()...")
-	return NewHResultChecker("ICORRuntimeHost.CloseEnum").CheckHResultError(syscall.SyscallN(
+	return NewHResultChecker("ICORRuntimeHost.CloseEnum").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.CloseEnum,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(hDomainEnum),
@@ -275,7 +276,7 @@ func (obj *ICORRuntimeHost) CloseEnum(hDomainEnum windows.Handle) error {
 
 func (obj *ICORRuntimeHost) UnloadDomain(appdomain *AppDomain) error {
 	debugPrint("Entering into ICORRuntimeHost.UnloadDomain()...")
-	return NewHResultChecker("ICORRuntimeHost.UnloadDomain").CheckHResultError(syscall.SyscallN(
+	return NewHResultChecker("ICORRuntimeHost.UnloadDomain").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.UnloadDomain,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(appdomain)),
@@ -284,7 +285,7 @@ func (obj *ICORRuntimeHost) UnloadDomain(appdomain *AppDomain) error {
 
 func (obj *ICORRuntimeHost) Stop() error {
 	debugPrint("Entering into ICORRuntimeHost.Stop()...")
-	return NewHResultChecker("ICORRuntimeHost.Stop").CheckHResultError(syscall.SyscallN(
+	return NewHResultChecker("ICORRuntimeHost.Stop").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.Stop,
 		uintptr(unsafe.Pointer(obj)),
 	))
@@ -299,7 +300,7 @@ func (obj *ICORRuntimeHost) Stop() error {
 //
 // );
 // https://learn.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/icorruntimehost-createdomainex-method
-func (obj *ICORRuntimeHost) CreateDomainEx(FriendlyName string, pSetup *IUnknown, pIdentityArray *IUnknown) (*AppDomain, error) {
+func (obj *ICORRuntimeHost) CreateDomainEx(FriendlyName string, pSetup unsafe.Pointer, pIdentityArray *IUnknown) (*AppDomain, error) {
 	debugPrint("Entering into ICORRuntimeHost.CreateDomainEx()...")
 	pwzFriendlyName := &utf16Le(FriendlyName)[0]
 
@@ -320,38 +321,35 @@ func (obj *ICORRuntimeHost) CreateDomainEx(FriendlyName string, pSetup *IUnknown
 	if hr != S_OK {
 		return nil, fmt.Errorf("the ICORRuntimeHost::CreateDomain method returned a non-zero HRESULT: 0x%x", hr)
 	}
-	var appDomain *AppDomain
-	errQueryInterface := iu.QueryInterface(IID_AppDomain, unsafe.Pointer(&appDomain))
+	appDomainPtr, errQueryInterface := iu.QueryInterface(IID_AppDomain)
 	if errQueryInterface != nil {
 		return nil, errQueryInterface
 	}
-	return appDomain, nil
+	return (*AppDomain)(unsafe.Pointer(*(**uintptr)(unsafe.Pointer(&appDomainPtr)))), nil
 }
 
-// HRESULT CreateDomainEx (
+// HRESULT CreateDomainSetup (
 //
-//	[in] LPCWSTR     pwzFriendlyName,
-//	[in] IUnknown*   pSetup,
-//	[in] IUnknown*   pIdentityArray,
-//	[out] IUnknown** pAppDomain
+//	[out] IUnknown** pAppDomainSetup
 //
 // );
 // https://learn.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/icorruntimehost-createdomainex-method
 func (obj *ICORRuntimeHost) CreateDomainSetup() (*AppDomainSetup, error) {
 	debugPrint("Entering into ICORRuntimeHost.CreateDomainSetup()...")
 	var iu *IUnknown
-	err := NewHResultChecker("ICORRuntimeHost.CreateDomainSetup").CheckHResultError(syscall.SyscallN(
-		obj.vtbl.CreateDomainEx,
-		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(&iu)), // [out] IUnknown** pAppDomainSetup
-	))
+	err := NewHResultChecker("ICORRuntimeHost.CreateDomainSetup").CheckHResultSyscallError(
+		syscall.SyscallN(
+			obj.vtbl.CreateDomainSetup,
+			uintptr(unsafe.Pointer(obj)),
+			uintptr(unsafe.Pointer(&iu)), // [out] IUnknown** pAppDomainSetup
+		),
+	)
 	if err != nil {
 		return nil, err
 	}
-	var appDomainSetup *AppDomainSetup
-	errQueryInterface := iu.QueryInterface(IID_AppDomainSetup, unsafe.Pointer(&appDomainSetup))
+	appDomainSetupPtr, errQueryInterface := iu.QueryInterface(IID_AppDomainSetup)
 	if errQueryInterface != nil {
 		return nil, errQueryInterface
 	}
-	return appDomainSetup, nil
+	return (*AppDomainSetup)(unsafe.Pointer(*(**uintptr)(unsafe.Pointer(&appDomainSetupPtr)))), nil
 }

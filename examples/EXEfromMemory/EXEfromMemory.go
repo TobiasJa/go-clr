@@ -51,7 +51,7 @@ func main() {
 	versionString := "v4.0.30319"
 	pwzVersion, err := syscall.UTF16PtrFromString(versionString)
 	must(err)
-	runtimeInfo, err := metaHost.GetRuntime(pwzVersion, clr.IID_ICLRRuntimeInfo)
+	runtimeInfo, err := metaHost.GetRuntime(pwzVersion)
 	must(err)
 
 	isLoadable, err := runtimeInfo.IsLoadable()

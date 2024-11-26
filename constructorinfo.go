@@ -75,17 +75,14 @@ func (obj *ConstructorInfo) Invoke(args *SafeArray) (*Variant, error) {
 		return nil, fmt.Errorf("arguments do not match method signature: %d given, %d expected", argsLen, parameterLen)
 	}
 	var variant *Variant
-	hr, _, err := syscall.SyscallN(
+	err = NewHResultChecker("ConstructorInfo::Invoke").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.Invoke_5,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(args)),
 		uintptr(unsafe.Pointer(&variant)),
-	)
-	if err != syscall.Errno(0) {
-		return nil, fmt.Errorf("the ConstructorInfo::Invoke method returned an error:\r\n%s", err)
-	}
-	if hr != S_OK {
-		return nil, fmt.Errorf("the ConstructorInfo::Invoke method returned a non-zero HRESULT: 0x%x", hr)
+	))
+	if err != nil {
+		return nil, err
 	}
 	return variant, nil
 }
@@ -93,16 +90,13 @@ func (obj *ConstructorInfo) Invoke(args *SafeArray) (*Variant, error) {
 func (obj *ConstructorInfo) GetParameters() (*SafeArray, error) {
 	debugPrint("Entering into ConstructorInfo.GetParameters()...")
 	var safeArray *SafeArray
-	hr, _, err := syscall.SyscallN(
+	err := NewHResultChecker("ConstructorInfo::GetParameters").CheckHResultSyscallError(syscall.SyscallN(
 		obj.vtbl.GetParameters,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(safeArray)),
-	)
-	if err != syscall.Errno(0) {
-		return nil, fmt.Errorf("the ConstructorInfo::GetParameters method returned an error:\r\n%s", err)
-	}
-	if hr != S_OK {
-		return nil, fmt.Errorf("the ConstructorInfo::GetParameters method returned a non-zero HRESULT: 0x%x", hr)
+	))
+	if err != nil {
+		return nil, err
 	}
 	return safeArray, nil
 }
@@ -110,16 +104,15 @@ func (obj *ConstructorInfo) GetParameters() (*SafeArray, error) {
 func (obj *ConstructorInfo) ToString() (string, error) {
 	debugPrint("Entering into ConstructorInfo.ToString()...")
 	var object *string
-	hr, _, err := syscall.SyscallN(
-		obj.vtbl.ToString,
-		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(&object)),
+	err := NewHResultChecker("ConstructorInfo::GetParameters").CheckHResultSyscallError(
+		syscall.SyscallN(
+			obj.vtbl.ToString,
+			uintptr(unsafe.Pointer(obj)),
+			uintptr(unsafe.Pointer(&object)),
+		),
 	)
-	if err != syscall.Errno(0) {
-		return "", fmt.Errorf("the ConstructorInfo::ToString method returned an error:\r\n%s", err)
-	}
-	if hr != S_OK {
-		return "", fmt.Errorf("the ConstructorInfo::ToString method returned a non-zero HRESULT: 0x%x", hr)
+	if err != nil {
+		return "", err
 	}
 	return ReadUnicodeStr(unsafe.Pointer(object)), nil
 }
